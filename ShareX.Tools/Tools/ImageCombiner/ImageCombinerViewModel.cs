@@ -1,0 +1,305 @@
+#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
+
+#endregion License Information (GPL v3)
+
+using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using ShareX.Tools.Infrastructure;
+using System.Collections.ObjectModel;
+
+namespace ShareX.Tools;
+
+public sealed partial class ImageCombinerViewModel : ViewModelBase, IDisposable
+{
+    private readonly ImageCombinerOptions _options;
+    private readonly ImageCombinerServices _services;
+    private readonly HashSet<string> _selectedImages = [];
+    private int _previewVersion;
+
+    public ObservableCollection<string> Images { get; } = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanMoveUp))]
+    [NotifyPropertyChangedFor(nameof(CanMoveDown))]
+    private string? _selectedImage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVertical))]
+    [NotifyPropertyChangedFor(nameof(AlignmentOptions))]
+    private bool _isHorizontal;
+
+    [ObservableProperty]
+    private int _selectedAlignmentIndex;
+
+    [ObservableProperty]
+    private decimal _space;
+
+    [ObservableProperty]
+    private decimal _wrapAfter;
+
+    [ObservableProperty]
+    private bool _autoFillBackground;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPreview))]
+    private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private string _statusText = Localization.Strings.ImageCombinerViewModel_Add_two_images;
+
+    public ImageCombinerViewModel(
+        ImageCombinerOptions options,
+        ImageCombinerServices services,
+        IEnumerable<string>? imageFiles = null)
+    {
+        _options = options;
+        _services = services;
+        _isHorizontal = options.Orientation == ImageCombinerOrientation.Horizontal;
+        _selectedAlignmentIndex = (int)options.Alignment;
+        _space = options.Space;
+        _wrapAfter = options.WrapAfter;
+        _autoFillBackground = options.AutoFillBackground;
+
+        AddFiles(imageFiles);
+    }
+
+    public Func<Task<IReadOnlyList<string>?>>? SelectFilesRequested { get; set; }
+
+    public bool IsVertical
+    {
+        get => !IsHorizontal;
+        set
+        {
+            if (value)
+            {
+                IsHorizontal = false;
+            }
+        }
+    }
+
+    public IReadOnlyList<string> AlignmentOptions => IsHorizontal
+        ? [Localization.Strings.ImageCombinerViewModel_Top, Localization.Strings.ImageCombinerViewModel_Center, Localization.Strings.ImageCombinerViewModel_Bottom]
+        : [Localization.Strings.ImageCombinerViewModel_Left, Localization.Strings.ImageCombinerViewModel_Center, Localization.Strings.ImageCombinerViewModel_Right];
+
+    public bool HasPreview => PreviewImage != null;
+    public bool HasImages => Images.Count > 0;
+    public bool CanCombine => Images.Count > 1 && !IsBusy;
+    public bool CanRemove => _selectedImages.Count > 0 || SelectedImage != null;
+    public bool CanMoveUp => SelectedImage != null && Images.IndexOf(SelectedImage) > 0;
+    public bool CanMoveDown => SelectedImage != null && Images.IndexOf(SelectedImage) is int index && index >= 0 && index < Images.Count - 1;
+    public string ImageCountText => string.Format(Images.Count == 1 ? Localization.Strings.ImageCombinerViewModel_One_image : Localization.Strings.ImageCombinerViewModel_Image_count, Images.Count);
+
+    [RelayCommand]
+    private async Task AddAsync()
+    {
+        if (SelectFilesRequested != null)
+        {
+            AddFiles(await SelectFilesRequested());
+        }
+    }
+
+    public void AddFiles(IEnumerable<string>? files)
+    {
+        if (files == null)
+        {
+            return;
+        }
+
+        foreach (string file in files.Where(File.Exists))
+        {
+            Images.Add(file);
+        }
+
+        CollectionChanged();
+    }
+
+    public void SetSelectedImages(IEnumerable<string> files)
+    {
+        _selectedImages.Clear();
+        foreach (string file in files)
+        {
+            _selectedImages.Add(file);
+        }
+        OnPropertyChanged(nameof(CanRemove));
+    }
+
+    [RelayCommand]
+    private void Remove()
+    {
+        string[] files = _selectedImages.Count > 0
+            ? _selectedImages.ToArray()
+            : SelectedImage == null ? [] : [SelectedImage];
+
+        foreach (string file in files)
+        {
+            Images.Remove(file);
+        }
+
+        _selectedImages.Clear();
+        SelectedImage = null;
+        CollectionChanged();
+    }
+
+    [RelayCommand]
+    private void MoveUp()
+    {
+        if (SelectedImage == null) return;
+        int index = Images.IndexOf(SelectedImage);
+        if (index > 0)
+        {
+            Images.Move(index, index - 1);
+            CollectionChanged();
+        }
+    }
+
+    [RelayCommand]
+    private void MoveDown()
+    {
+        if (SelectedImage == null) return;
+        int index = Images.IndexOf(SelectedImage);
+        if (index >= 0 && index < Images.Count - 1)
+        {
+            Images.Move(index, index + 1);
+            CollectionChanged();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CombineAsync()
+    {
+        if (!CanCombine)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusText = Localization.Strings.ImageCombinerViewModel_Combining_images;
+        try
+        {
+            await _services.ProcessAsync(CreateRequest());
+            StatusText = Localization.Strings.ImageCombinerViewModel_Images_combined;
+        }
+        catch (Exception ex)
+        {
+            StatusText = string.Format(Localization.Strings.ImageCombinerViewModel_Combine_failed, ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+            NotifyStateChanged();
+        }
+    }
+
+    partial void OnSelectedImageChanged(string? value) => NotifyStateChanged();
+
+    partial void OnIsHorizontalChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsVertical));
+        OnPropertyChanged(nameof(AlignmentOptions));
+        OptionsChanged();
+    }
+
+    partial void OnSelectedAlignmentIndexChanged(int value) => OptionsChanged();
+    partial void OnSpaceChanged(decimal value) => OptionsChanged();
+    partial void OnWrapAfterChanged(decimal value) => OptionsChanged();
+    partial void OnAutoFillBackgroundChanged(bool value) => OptionsChanged();
+
+    private void OptionsChanged()
+    {
+        _options.Orientation = IsHorizontal ? ImageCombinerOrientation.Horizontal : ImageCombinerOrientation.Vertical;
+        _options.Alignment = (ImageCombinerAlignment)Math.Clamp(SelectedAlignmentIndex, 0, 2);
+        _options.Space = (int)Space;
+        _options.WrapAfter = (int)WrapAfter;
+        _options.AutoFillBackground = AutoFillBackground;
+        _ = RefreshPreviewAsync();
+    }
+
+    private void CollectionChanged()
+    {
+        OnPropertyChanged(nameof(ImageCountText));
+        OnPropertyChanged(nameof(HasImages));
+        NotifyStateChanged();
+        _ = RefreshPreviewAsync();
+    }
+
+    private void NotifyStateChanged()
+    {
+        OnPropertyChanged(nameof(CanCombine));
+        OnPropertyChanged(nameof(CanRemove));
+        OnPropertyChanged(nameof(CanMoveUp));
+        OnPropertyChanged(nameof(CanMoveDown));
+    }
+
+    private ImageCombineRequest CreateRequest()
+    {
+        ImageCombinerOptions options = new ImageCombinerOptions
+        {
+            Orientation = IsHorizontal ? ImageCombinerOrientation.Horizontal : ImageCombinerOrientation.Vertical,
+            Alignment = (ImageCombinerAlignment)Math.Clamp(SelectedAlignmentIndex, 0, 2),
+            Space = (int)Space,
+            WrapAfter = (int)WrapAfter,
+            AutoFillBackground = AutoFillBackground
+        };
+        return new ImageCombineRequest(Images.ToArray(), options);
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        int version = ++_previewVersion;
+        if (Images.Count < 2)
+        {
+            PreviewImage?.Dispose();
+            PreviewImage = null;
+            StatusText = Localization.Strings.ImageCombinerViewModel_Add_two_images;
+            return;
+        }
+
+        try
+        {
+            byte[]? png = await _services.CreatePreviewAsync(CreateRequest());
+            if (version != _previewVersion || png == null) return;
+            using MemoryStream stream = new MemoryStream(png);
+            Bitmap bitmap = new Bitmap(stream);
+            PreviewImage?.Dispose();
+            PreviewImage = bitmap;
+            StatusText = string.Format(Localization.Strings.ImageCombinerViewModel_Previewing, ImageCountText);
+        }
+        catch (Exception ex)
+        {
+            if (version == _previewVersion)
+            {
+                StatusText = string.Format(Localization.Strings.ImageCombinerViewModel_Preview_failed, ex.Message);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        PreviewImage?.Dispose();
+    }
+}

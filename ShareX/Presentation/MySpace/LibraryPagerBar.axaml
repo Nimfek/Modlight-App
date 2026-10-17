@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.LibraryPagerBar"
+             x:CompileBindings="False">
+
+    <!-- Every style the bar needs is declared here rather than borrowed from
+         MainWindow's, for the reason DownloadView gives: this appears in that
+         file as one element, so a class renamed over there must not be able to
+         strip it of its shape with nobody noticing. -->
+    <UserControl.Styles>
+        <Style Selector="Border.pager">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Padding" Value="16,9"/>
+        </Style>
+
+        <Style Selector="TextBlock.pager-note">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- The numbered buttons, and the arrows either side of them. Square,
+             because a page number is one or two characters and a padded button
+             would make the strip twice as wide as the numbers in it. -->
+        <Style Selector="Button.pager-step">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.pager-step /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.pager-step:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <Style Selector="Button.pager-step TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.pager-step:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.pager-step:disabled TextBlock">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+
+        <!-- The page you are on. Marked the way this window marks every other
+             current thing - an accent-tinted surface with accent text - and not
+             as a filled block, which would be the only saturated rectangle on
+             the screen and would read as the primary action. -->
+        <Style Selector="Button.pager-step.current /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+        </Style>
+        <Style Selector="Button.pager-step.current TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style Selector="TextBlock.pager-gap">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+
+        <Style Selector="ComboBox.pager-size">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="9,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="TextBox.pager-jump">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="pager" IsVisible="{Binding IsVisible}">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+
+            <!-- Left: what this page is a page OF. The count that used to sit in
+                 the header said "Files: 6926" and nothing about where in them you
+                 were, which is the question a page turn raises. -->
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Classes="pager-note" Text="{Binding ShowingText}"/>
+
+                <ComboBox Classes="pager-size"
+                          IsVisible="{Binding ShowSizes}"
+                          ItemsSource="{Binding Sizes}"
+                          SelectedItem="{Binding SelectedSize, Mode=TwoWay}"
+                          ToolTip.Tip="{x:Static res:Strings.MySpace_PerPageHint}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate DataType="local:LibraryPageSize">
+                            <TextBlock Text="{Binding Label}" FontSize="12"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Right: the strip. Hidden outright when the listing is one page,
+                 rather than shown with everything disabled - a row of dead
+                 buttons is a thing to read and then work out is meaningless. -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="2"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding HasPages}">
+
+                <Button Classes="pager-step"
+                        IsEnabled="{Binding CanPrevious}"
+                        Click="OnPreviousClick"
+                        ToolTip.Tip="{x:Static res:Strings.MySpace_PreviousPage}">
+                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.chevron_left}"/>
+                </Button>
+
+                <ItemsControl ItemsSource="{Binding Steps}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="2"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="local:LibraryPageStep">
+                            <Panel>
+                                <Button Classes="pager-step"
+                                        Classes.current="{Binding IsCurrent}"
+                                        IsVisible="{Binding IsPage}"
+                                        Tag="{Binding}"
+                                        Click="OnStepClick">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </Button>
+                                <TextBlock Classes="pager-gap"
+                                           IsVisible="{Binding IsGap}"
+                                           Text="{Binding Label}"/>
+                            </Panel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button Classes="pager-step"
+                        IsEnabled="{Binding CanNext}"
+                        Click="OnNextClick"
+                        ToolTip.Tip="{x:Static res:Strings.MySpace_NextPage}">
+                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.chevron_right}"/>
+                </Button>
+
+                <!-- Only once the strip starts eliding. Fifty-eight pages is too
+                     many to walk to, and the gap is where the walking stops. -->
+                <TextBox Classes="pager-jump"
+                         Margin="6,0,0,0"
+                         IsVisible="{Binding ShowJump}"
+                         Text="{Binding JumpText, Mode=TwoWay}"
+                         PlaceholderText="{Binding PageOfText}"
+                         ToolTip.Tip="{x:Static res:Strings.MySpace_JumpTo}"
+                         KeyDown="OnJumpKeyDown"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

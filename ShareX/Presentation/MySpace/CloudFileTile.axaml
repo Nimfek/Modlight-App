@@ -1,0 +1,252 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.CloudFileTile"
+             x:CompileBindings="False">
+
+    <!-- The card of one file in My space.
+         Its own control rather than another slab of the main window's layout, for the
+         reason UploadView gives: that file is 1800 lines being edited by other hands,
+         and a tile that carries its own styles cannot have one of them changed out from
+         under it by a neighbour. The `tile-` prefix guarantees no collision either way.
+
+         The window keeps the OUTER border - the one with the pointer handlers on it -
+         because selection, dragging and the right-click menu are the grid's business,
+         not the tile's. Everything here is what the card SAYS. -->
+    <UserControl.Styles>
+        <!-- The picture. One less radius than the card's, because the card's 1px border
+             sits outside this: matching radii would leave a hairline gap at each corner. -->
+        <Style Selector="Border.tile-thumb">
+            <Setter Property="Height" Value="126"/>
+            <Setter Property="CornerRadius" Value="9,9,0,0"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+        <Style Selector="StackPanel.tile-root.selected Border.tile-thumb">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Main}"/>
+        </Style>
+
+        <!-- Password and expiry, over the top-right corner of the picture. -->
+        <Style Selector="Border.tile-badge">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+        </Style>
+        <Style Selector="Border.tile-badge TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- The caption. Three facts, all of them there all the time.
+             They used to SWAP: the name showed until the pointer arrived and the size and
+             date replaced it. That is why the owner said the app "only shows the file
+             name" - the rest of what the card knew was one hover away and invisible until
+             you went looking. The panel prints all of it, so this does too. -->
+        <Style Selector="TextBlock.tile-name">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <Style Selector="TextBlock.tile-sub">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <Style Selector="TextBlock.tile-stat">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.tile-stat-icon">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+
+        <!-- The handle that says a menu exists.
+             Always drawn, never only on hover: a control that appears when the pointer is
+             already on it can only be found by accident, and the right-click menu it
+             opens was exactly that - findable only by someone who tried. -->
+        <Style Selector="Button.tile-menu">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="StackPanel.tile-root:pointerover Button.tile-menu">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.tile-menu /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.tile-menu:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.tile-menu:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.tile-menu TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- The type mark, for a file there is no picture of. -->
+        <Style Selector="Border.tile-plate-chip">
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="3,0,3,1"/>
+            <Setter Property="Background" Value="#40000000"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.tile-plate-ext">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#FFFFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel x:Name="Root" Classes="tile-root" Classes.selected="{Binding IsSelected}">
+        <Border Classes="tile-thumb">
+            <Grid>
+                <!-- UniformToFill, not Uniform: a grid of pictures letterboxed to their
+                     own aspect ratios has no rhythm left to read. -->
+                <Image Source="{Binding Thumbnail}"
+                       IsVisible="{Binding HasThumbnail}"
+                       Stretch="UniformToFill"/>
+
+                <!-- No picture: say what the file IS.
+                     A sheet with a folded corner, the family's colour on the plate, the
+                     family's emblem and the extension printed over it - shape first,
+                     then colour, then the word, in that order of legibility. This is the
+                     panel's own mark (components/dashboard/Thumbnail.tsx), not a second
+                     one invented here, so a PDF is the same red object in both places.
+
+                     The plate is opaque and its colour is fixed, which is what makes ONE
+                     badge work across fourteen skins: the surface underneath stops
+                     mattering, so the only contrast to guarantee is white-on-plate. The
+                     rim is the one part that has to know about the skin, and it is drawn
+                     from the foreground token for that reason - an opaque dark plate on a
+                     dark skin is otherwise a rectangle with no silhouette. -->
+                <Panel Width="56"
+                       Height="70"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasNoThumbnail}">
+                    <Viewbox Stretch="Fill">
+                        <!-- The canvas is the SVG's viewBox, and it clips: the rim is
+                             stroked along the path's own edge, so the outer half falls
+                             outside these bounds and reads as an inset bevel that cannot
+                             spill past the mark. -->
+                        <Canvas Width="64" Height="80" ClipToBounds="True">
+                            <Path Data="{x:Static local:CloudFileTile.SheetGeometry}"
+                                  Fill="{Binding TypePlate}"/>
+                            <Path Data="{x:Static local:CloudFileTile.FoldGeometry}"
+                                  Fill="#42FFFFFF"/>
+                            <Path Data="{x:Static local:CloudFileTile.SheetGeometry}"
+                                  Stroke="{DynamicResource ShareX.Brush.Text}"
+                                  StrokeThickness="2"
+                                  Opacity="0.35"/>
+                        </Canvas>
+                    </Viewbox>
+                    <StackPanel Spacing="3"
+                                Margin="0,8,0,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Classes="icon"
+                                   Text="{Binding TypeEmblem}"
+                                   FontSize="17"
+                                   Foreground="#D9FFFFFF"
+                                   HorizontalAlignment="Center"/>
+                        <Border Classes="tile-plate-chip">
+                            <TextBlock Classes="tile-plate-ext"
+                                       Text="{Binding TypeLabel}"
+                                       FontSize="{Binding TypeLabelSize}"/>
+                        </Border>
+                    </StackPanel>
+                </Panel>
+
+                <!-- The moving preview, laid OVER the still and never in place of it.
+                     AFTER the type mark, not before it: later children draw on top in a
+                     Grid, and a video whose poster frame failed shows the mark - which
+                     would then be painted over the animation it is standing in for. -->
+                <Image Source="{Binding MotionFrame}"
+                       IsVisible="{Binding IsMoving}"
+                       Stretch="UniformToFill"/>
+
+                <StackPanel Orientation="Horizontal"
+                            Spacing="4"
+                            Margin="8"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
+                    <Border Classes="tile-badge" IsVisible="{Binding HasPassword}">
+                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.lock_keyhole}"/>
+                    </Border>
+                    <Border Classes="tile-badge" IsVisible="{Binding Expires}">
+                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.clock}"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid ColumnDefinitions="*,Auto" Margin="10,8,6,0">
+            <StackPanel Spacing="2">
+                <TextBlock Classes="tile-name" Text="{Binding Name}"/>
+                <TextBlock Classes="tile-sub" Text="{Binding Meta}"/>
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Classes="tile-menu"
+                    VerticalAlignment="Top"
+                    Margin="0,-2,0,0"
+                    AutomationProperties.Name="{x:Static res:Strings.MySpace_FileActions}"
+                    Click="OnMenuClick"
+                    Tapped="OnMenuGesture"
+                    DoubleTapped="OnMenuGesture">
+                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.ellipsis}"/>
+            </Button>
+        </Grid>
+
+        <!-- Views and folder. The folder's NAME is resolved on the client: the listing
+             endpoint answers folderName null on purpose and expects whoever draws the
+             card to look the id up in the folder list it already has. -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="10,6,10,10">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Classes="icon tile-stat-icon" Text="{x:Static theming:LucideIcons.eye}"/>
+                <TextBlock Classes="tile-stat" Text="{Binding ViewsText}"/>
+            </StackPanel>
+
+            <Grid Grid.Column="1"
+                  ColumnDefinitions="Auto,*"
+                  ColumnSpacing="4"
+                  IsVisible="{Binding HasFolder}">
+                <TextBlock Classes="icon tile-stat-icon" Text="{x:Static theming:LucideIcons.folder}"/>
+                <!-- In a Grid star column rather than beside the icon in a StackPanel,
+                     which would measure the name at infinite width and never trim it. -->
+                <TextBlock Grid.Column="1"
+                           Classes="tile-stat"
+                           Text="{Binding FolderName}"
+                           TextTrimming="CharacterEllipsis"
+                           MaxLines="1"/>
+            </Grid>
+        </Grid>
+    </StackPanel>
+</UserControl>

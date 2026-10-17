@@ -1,0 +1,149 @@
+﻿#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+*/
+
+#endregion License Information (GPL v3)
+
+#nullable enable
+
+using Avalonia.Controls;
+using ShareX.AvaloniaUI.Theming;
+using ShareX.HelpersLib;
+using ShareX.Localization;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using AvaloniaBitmap = Avalonia.Media.Imaging.Bitmap;
+using DrawingBitmap = System.Drawing.Bitmap;
+
+namespace ShareX;
+
+public partial class AboutWindow : Window
+{
+    private readonly AvaloniaBitmap _logoBitmap;
+    private readonly ShareXClickerControl _clicker;
+    private UpdateChecker? _updateChecker;
+    private bool _updateChecked;
+
+    public AboutWindow()
+    {
+        InitializeComponent();
+        RequestedThemeVariant = ThemeManager.GetCurrentTheme();
+
+        using DrawingBitmap logo = ShareXResources.Logo;
+        using Stream logoStream = logo.GetStream();
+        logoStream.Position = 0;
+        _logoBitmap = new AvaloniaBitmap(logoStream);
+        LogoImage.Source = _logoBitmap;
+        _clicker = new ShareXClickerControl(new ShareXClickerState(),
+            LogoImage, ClickerOverlay, ClickerParticleOverlay, SectionsViewer, ClickerHost, AboutPanel.Background,
+            [BrandText, ProductNameText, AboutDetailsPanel, CopyrightText]);
+
+        ProductNameText.Text = Program.Title;
+        CopyrightText.Text = Strings.AboutWindow_Copyright;
+        SectionsControl.ItemsSource = CreateSections();
+
+        // Hidden rather than left saying "you are using the latest version", which is a
+        // claim this build cannot make: with no release feed it has not looked.
+        if (!SystemOptions.DisableUpdateCheck && Program.UpdateManager.HasReleaseChannel)
+        {
+            UpdatePanel.IsVisible = true;
+            UpdateStatusText.Text = Strings.AboutWindow_CheckingForUpdates;
+        }
+
+        Opened += OnOpened;
+        Closed += (_, _) =>
+        {
+            _clicker.Dispose();
+            _logoBitmap.Dispose();
+        };
+    }
+
+    private async void OnOpened(object? sender, EventArgs e)
+    {
+        Activate();
+
+        if (!UpdatePanel.IsVisible || _updateChecked)
+        {
+            return;
+        }
+
+        _updateChecked = true;
+        _updateChecker = Program.UpdateManager.CreateUpdateChecker();
+        await _updateChecker.CheckUpdateAsync();
+
+        UpdateProgress.IsVisible = false;
+
+        switch (_updateChecker.Status)
+        {
+            case UpdateStatus.UpdateCheckFailed:
+                UpdateStatusText.Text = Strings.AboutWindow_UpdateCheckFailed;
+                break;
+            case UpdateStatus.UpdateAvailable:
+                UpdateStatusText.IsVisible = false;
+                UpdateAvailableButton.Content = Strings.AboutWindow_NewVersionAvailable;
+                UpdateAvailableButton.IsVisible = true;
+                break;
+            case UpdateStatus.UpToDate:
+                UpdateStatusText.Text = Strings.AboutWindow_UpToDate;
+                break;
+        }
+    }
+
+    private async void OnUpdateAvailableClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_updateChecker == null)
+        {
+            return;
+        }
+
+        await UpdateMessageWindow.StartAsync(_updateChecker);
+    }
+
+    private void OnLinkClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is HyperlinkButton { DataContext: AboutLinkItem item })
+        {
+            URLHelpers.OpenURL(item.Uri.AbsoluteUri);
+        }
+    }
+
+    private static IReadOnlyList<AboutSection> CreateSections()
+    {
+        return
+        [
+            new AboutSection(Strings.AboutWindow_Team,
+            [
+                Link("Jaex", Links.Jaex),
+                Link("McoreD", Links.McoreD)
+            ]),
+            new AboutSection(Strings.AboutWindow_Links,
+            [
+                Link(Strings.AboutWindow_Website, Links.Website),
+                Link(Strings.AboutWindow_ProjectPage, Links.GitHub),
+                Link(Strings.AboutWindow_Changelog, Links.Changelog),
+                Link(Strings.AboutWindow_PrivacyPolicy, Links.PrivacyPolicy),
+                Link(Strings.AboutWindow_Donate, Links.Donate),
+                Link("X", Links.X),
+                Link("Discord", Links.Discord),
+                Link("Reddit", Links.Reddit),
+                Link("Steam", Links.Steam),
+                Link("Microsoft Store", Links.MicrosoftStore)
+            ])
+        ];
+    }
+
+    private static AboutLinkItem Link(string label, string url) => new(label, url, new Uri(url));
+}
+
+public sealed record AboutSection(string Title, IReadOnlyList<AboutLinkItem> Items);
+
+public sealed record AboutLinkItem(string Label, string DisplayText, Uri Uri);

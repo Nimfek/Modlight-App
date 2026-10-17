@@ -1,0 +1,115 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.ModlightFolderDeleteWindow"
+        x:CompileBindings="False"
+        Width="620"
+        MinWidth="520"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- The two paths are cards rather than a checkbox beside one button, and that is
+             the whole design: a checkbox turns "delete the folder" and "empty it into the
+             bin" into the same click with a different tick, and the tick is exactly the
+             thing a hurried person does not read. Two labelled cards make the reader
+             choose between two sentences. -->
+        <Style Selector="Border.choice">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="14,5"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="*,Auto">
+            <StackPanel Margin="22,20,22,18" Spacing="14">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                    <Border Width="44"
+                            Height="44"
+                            CornerRadius="10"
+                            VerticalAlignment="Top"
+                            Background="{DynamicResource ShareX.Brush.Background.Panel}">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                   FontSize="21"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderTitle}"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock x:Name="Summary" Classes="hint"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderWarning}" Classes="hint"/>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <!-- Listed first, and it is the one the Enter key reaches. -->
+                    <Border Classes="choice">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderKeepTitle}"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderKeepHint}"
+                                       Classes="hint"
+                                       Height="76"/>
+                            <Button Classes="compact"
+                                    IsDefault="True"
+                                    Content="{x:Static res:Strings.MySpace_DeleteFolderKeepAction}"
+                                    Click="OnKeepClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="choice">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderPurgeTitle}"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Static res:Strings.MySpace_DeleteFolderPurgeHint}"
+                                       Classes="hint"
+                                       Height="76"/>
+                            <Button x:Name="PurgeButton"
+                                    Classes="compact"
+                                    IsEnabled="False"
+                                    Click="OnPurgeClick"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <Button HorizontalAlignment="Right"
+                        MinWidth="96"
+                        MinHeight="32"
+                        Padding="14,5"
+                        IsCancel="True"
+                        Content="{x:Static res:Strings.MySpace_Cancel}"
+                        Click="OnCancelClick"/>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

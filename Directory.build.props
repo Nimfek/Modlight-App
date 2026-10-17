@@ -1,0 +1,41 @@
+<Project>
+  <PropertyGroup>
+    <Company>Modlight</Company>
+    <Product>Modlight</Product>
+    <Copyright>Copyright (c) 2026 Modlight. Based on ShareX, Copyright (c) 2007-2026 ShareX Team. Licensed under the GNU GPL v3.</Copyright>
+    <Version>0.7.7</Version>
+    <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendPlatformToOutputPath>false</AppendPlatformToOutputPath>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Configurations>Release;Debug</Configurations>
+    <Platforms>x64;ARM64</Platforms>
+  </PropertyGroup>
+  <!--
+    Settings that belong to ONE distribution of the app, not to the source. Put them in
+    Modlight.local.props next to this file (it is gitignored):
+
+      <Project>
+        <PropertyGroup>
+          <ModlightDefaultHost>https://files.example.com</ModlightDefaultHost>
+        </PropertyGroup>
+      </Project>
+
+    ModlightDefaultHost is the server a fresh install offers on the sign-in screen, AND the
+    only server this build will accept updates from. Empty, the default, means the user
+    types in their own server and automatic updates are off - which is the right answer for
+    anyone building from source. Can also be passed as /p:ModlightDefaultHost=...
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)Modlight.local.props" Condition="Exists('$(MSBuildThisFileDirectory)Modlight.local.props')" />
+  <PropertyGroup>
+    <ModlightDefaultHost Condition="'$(ModlightDefaultHost)' == ''"></ModlightDefaultHost>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)' == 'x64'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)' == 'ARM64'">
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+    <PlatformTarget>ARM64</PlatformTarget>
+  </PropertyGroup>
+</Project>

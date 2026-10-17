@@ -1,0 +1,1286 @@
+﻿#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
+
+#endregion License Information (GPL v3)
+
+using ShareX.HelpersLib;
+using ShareX.Localization;
+using ShareX.Properties;
+using ShareX.UploadersLib;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows.Forms;
+using MessageBox = ShareX.AvaloniaUI.MessageBox;
+using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
+using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
+
+namespace ShareX
+{
+    public class WorkerTask : IDisposable
+    {
+        public delegate void TaskEventHandler(WorkerTask task);
+        public delegate void TaskImageEventHandler(WorkerTask task, Bitmap image);
+
+        public event TaskEventHandler StatusChanged, UploadStarted, UploadProgressChanged, UploadCompleted, TaskCompleted;
+        public event TaskImageEventHandler ImageReady;
+
+        public TaskInfo Info { get; private set; }
+        public TaskStatus Status { get; private set; }
+        public bool IsBusy => Status == TaskStatus.InQueue || IsWorking;
+        public bool IsWorking => Status == TaskStatus.Preparing || Status == TaskStatus.Working || Status == TaskStatus.Stopping;
+        public bool StopRequested { get; private set; }
+        public bool RequestSettingUpdate { get; private set; }
+        public bool EarlyURLCopied { get; private set; }
+        public Stream Data { get; private set; }
+        public Bitmap Image { get; private set; }
+        public bool KeepImage { get; set; }
+        public string Text { get; private set; }
+
+        private ThreadWorker threadWorker;
+        private GenericUploader uploader;
+        private TaskReferenceHelper taskReferenceHelper;
+
+        #region Constructors
+
+        private WorkerTask(TaskSettings taskSettings)
+        {
+            Status = TaskStatus.InQueue;
+            Info = new TaskInfo(taskSettings);
+        }
+
+        public static WorkerTask CreateHistoryTask(RecentTask recentTask)
+        {
+            WorkerTask task = new WorkerTask(null);
+            task.Status = TaskStatus.History;
+            task.Info.FilePath = recentTask.FilePath;
+            task.Info.FileName = recentTask.FileName;
+            task.Info.Result.URL = recentTask.URL;
+            task.Info.Result.ThumbnailURL = recentTask.ThumbnailURL;
+            task.Info.Result.DeletionURL = recentTask.DeletionURL;
+            task.Info.Result.ShortenedURL = recentTask.ShortenedURL;
+            task.Info.TaskEndTime = recentTask.Time;
+
+            return task;
+        }
+
+        public static WorkerTask CreateDataUploaderTask(EDataType dataType, Stream stream, string fileName, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = TaskJob.DataUpload;
+            task.Info.DataType = dataType;
+            task.Info.FileName = fileName;
+            task.Data = stream;
+            return task;
+        }
+
+        public static WorkerTask CreateFileUploaderTask(string filePath, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.FilePath = filePath;
+            task.Info.DataType = TaskHelpers.FindDataType(task.Info.FilePath, taskSettings);
+
+            if (task.Info.TaskSettings.UploadSettings.FileUploadUseNamePattern)
+            {
+                string ext = FileHelpers.GetFileNameExtension(task.Info.FilePath);
+                task.Info.FileName = TaskHelpers.GetFileName(task.Info.TaskSettings, ext);
+            }
+
+            if (task.Info.TaskSettings.AdvancedSettings.ProcessImagesDuringFileUpload && task.Info.DataType == EDataType.Image)
+            {
+                task.Info.Job = TaskJob.Job;
+                task.Image = ImageHelpers.LoadImage(task.Info.FilePath);
+            }
+            else
+            {
+                task.Info.Job = TaskJob.FileUpload;
+
+                if (!task.LoadFileStream())
+                {
+                    return null;
+                }
+            }
+
+            return task;
+        }
+
+        public static WorkerTask CreateImageUploaderTask(TaskMetadata metadata, TaskSettings taskSettings, string customFileName = null)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = TaskJob.Job;
+            task.Info.DataType = EDataType.Image;
+
+            if (!string.IsNullOrEmpty(customFileName))
+            {
+                task.Info.FileName = FileHelpers.AppendExtension(customFileName, "bmp");
+            }
+            else
+            {
+                task.Info.FileName = TaskHelpers.GetFileName(taskSettings, "bmp", metadata);
+            }
+
+            task.Info.Metadata = metadata;
+            task.Image = metadata.Image;
+            return task;
+        }
+
+        public static WorkerTask CreateTextUploaderTask(string text, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = TaskJob.TextUpload;
+            task.Info.DataType = EDataType.Text;
+            task.Info.FileName = TaskHelpers.GetFileName(taskSettings, taskSettings.AdvancedSettings.TextFileExtension);
+            task.Text = text;
+            return task;
+        }
+
+        public static WorkerTask CreateURLShortenerTask(string url, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = TaskJob.ShortenURL;
+            task.Info.DataType = EDataType.URL;
+            task.Info.FileName = string.Format(Strings.UploadTask_CreateURLShortenerTask_Shorten_URL___0__, taskSettings.URLShortenerDestination.GetLocalizedDescription());
+            task.Info.Result.URL = url;
+            return task;
+        }
+
+        public static WorkerTask CreateShareURLTask(string url, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = TaskJob.ShareURL;
+            task.Info.DataType = EDataType.URL;
+            task.Info.FileName = string.Format(Strings.UploadTask_CreateShareURLTask_Share_URL___0__, taskSettings.URLSharingServiceDestination.GetLocalizedDescription());
+            task.Info.Result.URL = url;
+            return task;
+        }
+
+        public static WorkerTask CreateFileJobTask(string filePath, TaskMetadata metadata, TaskSettings taskSettings, string customFileName = null)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.FilePath = filePath;
+            task.Info.DataType = TaskHelpers.FindDataType(task.Info.FilePath, taskSettings);
+
+            if (!string.IsNullOrEmpty(customFileName))
+            {
+                string ext = FileHelpers.GetFileNameExtension(task.Info.FilePath);
+                task.Info.FileName = FileHelpers.AppendExtension(customFileName, ext);
+            }
+            else if (task.Info.TaskSettings.UploadSettings.FileUploadUseNamePattern)
+            {
+                string ext = FileHelpers.GetFileNameExtension(task.Info.FilePath);
+                task.Info.FileName = TaskHelpers.GetFileName(task.Info.TaskSettings, ext);
+            }
+
+            task.Info.Metadata = metadata;
+            task.Info.Job = TaskJob.Job;
+
+            if (task.Info.IsUploadJob && !task.LoadFileStream())
+            {
+                return null;
+            }
+
+            return task;
+        }
+
+        public static WorkerTask CreateDownloadTask(string url, bool upload, TaskSettings taskSettings)
+        {
+            WorkerTask task = new WorkerTask(taskSettings);
+            task.Info.Job = upload ? TaskJob.DownloadUpload : TaskJob.Download;
+
+            string fileName = URLHelpers.URLDecode(url, 10);
+            fileName = URLHelpers.GetFileName(fileName);
+            fileName = FileHelpers.SanitizeFileName(fileName);
+
+            if (task.Info.TaskSettings.UploadSettings.FileUploadUseNamePattern)
+            {
+                string ext = FileHelpers.GetFileNameExtension(fileName);
+                fileName = TaskHelpers.GetFileName(task.Info.TaskSettings, ext);
+            }
+
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return null;
+            }
+
+            task.Info.FileName = fileName;
+            task.Info.DataType = TaskHelpers.FindDataType(task.Info.FileName, taskSettings);
+            task.Info.Result.URL = url;
+            return task;
+        }
+
+        #endregion Constructors
+
+        public void Start()
+        {
+            if (Status == TaskStatus.InQueue && !StopRequested)
+            {
+                Info.TaskStartTime = DateTime.Now;
+
+                threadWorker = new ThreadWorker();
+                Prepare();
+                threadWorker.DoWork += ThreadDoWork;
+                threadWorker.Completed += ThreadCompleted;
+                threadWorker.Start(ApartmentState.STA);
+            }
+        }
+
+        private void Prepare()
+        {
+            Status = TaskStatus.Preparing;
+
+            switch (Info.Job)
+            {
+                case TaskJob.Job:
+                case TaskJob.TextUpload:
+                    Info.Status = Strings.UploadTask_Prepare_Preparing;
+                    break;
+                default:
+                    Info.Status = Strings.UploadTask_Prepare_Starting;
+                    break;
+            }
+
+            OnStatusChanged();
+        }
+
+        public void Stop()
+        {
+            StopRequested = true;
+
+            switch (Status)
+            {
+                case TaskStatus.InQueue:
+                    OnTaskCompleted();
+                    break;
+                case TaskStatus.Preparing:
+                case TaskStatus.Working:
+                    if (uploader != null) uploader.StopUpload();
+                    Status = TaskStatus.Stopping;
+                    Info.Status = Strings.UploadTask_Stop_Stopping;
+                    OnStatusChanged();
+                    break;
+            }
+        }
+
+        public void ShowErrorWindow()
+        {
+            if (Info != null && Info.Result != null && Info.Result.IsError)
+            {
+                string errors = Info.Result.ErrorsToString();
+
+                if (!string.IsNullOrEmpty(errors))
+                {
+                    ErrorWindowIntegration.Show(Strings.UploadInfoManager_ShowErrors_Upload_errors, errors,
+                        Program.LogsFilePath, Links.GitHubIssues, false);
+                }
+            }
+        }
+
+        private void ThreadDoWork()
+        {
+            CreateTaskReferenceHelper();
+
+            try
+            {
+                // Asked before the capture work, answered after it: whether there is a
+                // Modlight account decides whether this file has anywhere to go, and the
+                // only chance to make sure a capture survives having nowhere to go is to
+                // turn the local save on before DoThreadJob writes it. The sign-in window
+                // itself comes up later, in DoUploadJob, so the screenshot is on disk and
+                // in the clipboard before anything can block waiting for a person.
+                if (ModlightUploadGate.IsSignedOut(Info))
+                {
+                    ModlightUploadGate.KeepLocally(Info);
+                }
+
+                StopRequested = !DoThreadJob();
+
+                OnImageReady();
+
+                if (!StopRequested)
+                {
+                    if (Info.IsUploadJob && TaskHelpers.IsUploadAllowed())
+                    {
+                        DoUploadJob();
+                    }
+                    else
+                    {
+                        Info.Result.IsURLExpected = false;
+                    }
+                }
+            }
+            finally
+            {
+                KeepImage = Image != null && Info.TaskSettings.GeneralSettings.ShowToastNotificationAfterTaskCompleted;
+
+                Dispose();
+
+                if (EarlyURLCopied && (StopRequested || Info.Result == null || string.IsNullOrEmpty(Info.Result.URL)) && ClipboardHelpers.ContainsText())
+                {
+                    ClipboardHelpers.Clear();
+                }
+
+                if ((Info.Job == TaskJob.Job || (Info.Job == TaskJob.FileUpload && Info.TaskSettings.AdvancedSettings.UseAfterCaptureTasksDuringFileUpload))
+                    && Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.DeleteFile) && !string.IsNullOrEmpty(Info.FilePath) && File.Exists(Info.FilePath))
+                {
+                    File.Delete(Info.FilePath);
+                }
+            }
+
+            if (!StopRequested && Info.Result != null && Info.Result.IsURLExpected && !Info.Result.IsError)
+            {
+                if (string.IsNullOrEmpty(Info.Result.URL))
+                {
+                    AddErrorMessage(Strings.UploadTask_ThreadDoWork_URL_is_empty_);
+                }
+                else
+                {
+                    DoAfterUploadJobs();
+                }
+            }
+        }
+
+        private void CreateTaskReferenceHelper()
+        {
+            // Where this one file is going, decided once, here, and recorded on Info so
+            // the completion notice can say where the file went without reading a target
+            // that may have moved since. Three answers, in this order:
+            //
+            //  1. What this task was told. Dropping on a folder tile means THAT folder,
+            //     whatever else is set or open.
+            //  2. The folder chosen in the upload settings these captures run under. It
+            //     is a deliberate, persisted choice, and it is the whole point of the
+            //     setting: a hotkey capture happens with the window hidden, so "wherever
+            //     you last browsed" is not something the person can see at the moment
+            //     they press the key. The picker names the ambient target as its own
+            //     first entry, so choosing anything else is visibly choosing NOT to
+            //     follow My space.
+            //  3. The ambient target: the folder My space is standing in. Untouched for
+            //     everybody who never opens the picker, which is what makes a drop on the
+            //     window, a clipboard upload, a tray upload and a capture land where the
+            //     window says they will.
+            Info.ModlightFolderId = Info.TaskSettings.ModlightFolderId ?? ConfiguredFolderId() ?? ModlightUploadTarget.Current;
+
+            taskReferenceHelper = new TaskReferenceHelper()
+            {
+                DataType = Info.DataType,
+                TextFormat = Info.TaskSettings.AdvancedSettings.TextFormat,
+
+                // The only route from the window to the uploader: an uploader is built
+                // from the config and this helper, and the config knows about the account
+                // rather than about the folder tile that was just dropped on.
+                ModlightFolderId = Info.ModlightFolderId,
+
+                // Same route, same reason: what the Shorten URL dialog was asked for.
+                ModlightShortLink = Info.TaskSettings.ModlightShortLink
+            };
+        }
+
+        /// <summary>
+        /// The folder set in these task settings, or null when none is.
+        /// </summary>
+        /// <remarks>
+        /// Empty and null both mean "expressed no preference" - the field is a string on
+        /// a persisted settings object, so it arrives as "" from a config written before
+        /// the setting existed and as null from nothing at all. The root sentinel is a
+        /// preference and passes through: it means "no folder, deliberately".
+        ///
+        /// An id pointing at a folder that has since been deleted in the panel is sent
+        /// unchanged. Checking first would cost a round trip on every capture to learn
+        /// something the upload itself reports for free: the server stores the file in
+        /// the account's default folder and says so in folder_warning, which is the right
+        /// outcome, because by then the bytes are already there.
+        /// </remarks>
+        private string ConfiguredFolderId()
+        {
+            string folderId = Info.TaskSettings.UploadSettings?.ModlightFolderId;
+            return string.IsNullOrEmpty(folderId) ? null : folderId;
+        }
+
+        private void DoUploadJob()
+        {
+            if (Program.Settings.ShowLargeFileSizeWarning > 0)
+            {
+                long dataSize = Program.Settings.BinaryUnits ? Program.Settings.ShowLargeFileSizeWarning * 1024 * 1024 : Program.Settings.ShowLargeFileSizeWarning * 1000 * 1000;
+                if (Data != null && Data.Length > dataSize)
+                {
+                    LargeFileUploadWarningResult result = LargeFileUploadWarningWindowIntegration.Show();
+                    if (result.DontShowAgain) Program.Settings.ShowLargeFileSizeWarning = 0;
+                    if (!result.ShouldContinue) Stop();
+                }
+            }
+
+            if (!StopRequested)
+            {
+                SettingManager.WaitUploadersConfig();
+
+                Status = TaskStatus.Working;
+                Info.Status = Strings.UploadTask_DoUploadJob_Uploading;
+
+                TaskbarManager.SetProgressState(TaskbarProgressBarStatus.Normal);
+
+                bool cancelUpload = false;
+
+                // Nothing to upload to yet. Skipping is the same outcome as declining
+                // the before-upload window below - no URL is expected and no error is
+                // reported - and the file is already on disk, because ThreadDoWork saw
+                // this coming and made sure of it.
+                if (!ModlightUploadGate.Allow(Info))
+                {
+                    cancelUpload = true;
+                }
+                else if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowBeforeUploadWindow))
+                {
+                    cancelUpload = !BeforeUploadWindowIntegration.Show(Info);
+                }
+
+                if (!cancelUpload)
+                {
+                    OnUploadStarted();
+
+                    bool isError = DoUpload(Data, Info.FileName);
+
+                    if (isError && Program.Settings.MaxUploadFailRetry > 0)
+                    {
+                        for (int retry = 1; !StopRequested && isError && retry <= Program.Settings.MaxUploadFailRetry; retry++)
+                        {
+                            DebugHelper.WriteLine("Upload failed. Retrying upload.");
+                            isError = DoUpload(Data, Info.FileName, retry);
+                        }
+                    }
+
+                    // Before the failure is reported, and only when nothing answered:
+                    // an upload the link could not carry is a postponement, not a failure.
+                    if (isError && !StopRequested && HandOverToQueue())
+                    {
+                        isError = false;
+                    }
+
+                    if (!isError)
+                    {
+                        OnUploadCompleted();
+                    }
+                }
+                else
+                {
+                    Info.Result.IsURLExpected = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Give this upload to the offline queue, if the queue will have it.
+        /// </summary>
+        /// <remarks>
+        /// The decision itself is the queue's, and it turns on one thing: whether the server
+        /// answered. What this side has to get right is the state the task is left in. It ends
+        /// exactly as a stopped task ends - no error, so no failure sound and no red toast; no
+        /// URL expected, so nothing complains that one is missing; no after-upload work, since
+        /// there is nothing yet to copy, open or shorten. The user is told by the queue, once,
+        /// and told again when it actually goes.
+        ///
+        /// The old result is discarded rather than kept: it holds the transport exception that
+        /// caused the hand-over, and anything reading Errors afterwards would report an upload
+        /// that is merely late as one that went wrong.
+        /// </remarks>
+        private bool HandOverToQueue()
+        {
+            ResponseInfo answer = (uploader as UploadersLib.FileUploaders.Modlight)?.LastAnswer;
+
+            if (!ModlightUploadQueue.TryTakeOver(this, answer))
+            {
+                return false;
+            }
+
+            Info.Result = new UploadResult() { IsURLExpected = false };
+            Info.Status = Strings.UploadQueue_StateWaiting;
+            StopRequested = true;
+
+            return true;
+        }
+
+        private bool DoUpload(Stream data, string fileName, int retry = 0)
+        {
+            bool isError = false;
+
+            if (retry > 0)
+            {
+                Thread.Sleep(1000);
+            }
+
+            try
+            {
+                switch (Info.UploadDestination)
+                {
+                    case EDataType.Image:
+                        Info.Result = UploadImage(data, fileName);
+                        break;
+                    case EDataType.Text:
+                        Info.Result = UploadText(data, fileName);
+                        break;
+                    case EDataType.File:
+                        Info.Result = UploadFile(data, fileName);
+                        break;
+                }
+
+                StopRequested |= taskReferenceHelper.StopRequested;
+            }
+            catch (Exception e)
+            {
+                if (!StopRequested)
+                {
+                    DebugHelper.WriteException(e);
+                    isError = true;
+                    AddErrorMessage(e.ToString());
+                }
+            }
+            finally
+            {
+                if (Info.Result == null)
+                {
+                    Info.Result = new UploadResult();
+                }
+
+                if (uploader != null)
+                {
+                    AddErrorMessage(uploader.Errors);
+                }
+
+                isError |= Info.Result.IsError;
+            }
+
+            return isError;
+        }
+
+        private void AddErrorMessage(UploaderErrorManager errors)
+        {
+            if (Info.Result == null)
+            {
+                Info.Result = new UploadResult();
+            }
+
+            Info.Result.Errors.Add(errors);
+        }
+
+        private void AddErrorMessage(string error)
+        {
+            if (Info.Result == null)
+            {
+                Info.Result = new UploadResult();
+            }
+
+            Info.Result.Errors.Add(error);
+        }
+
+        private bool DoThreadJob()
+        {
+            if (Info.IsUploadJob && Info.TaskSettings.AdvancedSettings.AutoClearClipboard)
+            {
+                ClipboardHelpers.Clear();
+            }
+
+            if (Info.Job == TaskJob.Download || Info.Job == TaskJob.DownloadUpload)
+            {
+                bool downloadResult = DownloadFromURL(Info.Job == TaskJob.DownloadUpload);
+
+                if (!downloadResult)
+                {
+                    return false;
+                }
+                else if (Info.Job == TaskJob.Download)
+                {
+                    return true;
+                }
+            }
+
+            if (Info.Job == TaskJob.Job)
+            {
+                if (!DoAfterCaptureJobs())
+                {
+                    return false;
+                }
+
+                DoFileJobs();
+            }
+            else if (Info.Job == TaskJob.TextUpload && !string.IsNullOrEmpty(Text))
+            {
+                DoTextJobs();
+            }
+            else if (Info.Job == TaskJob.FileUpload && Info.TaskSettings.AdvancedSettings.UseAfterCaptureTasksDuringFileUpload)
+            {
+                DoFileJobs();
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.DoOCR))
+            {
+                DoOCR();
+            }
+
+            if (Info.IsUploadJob && Data != null && Data.CanSeek)
+            {
+                Data.Position = 0;
+            }
+
+            return true;
+        }
+
+        private bool DoAfterCaptureJobs()
+        {
+            if (Image == null)
+            {
+                return true;
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.BeautifyImage))
+            {
+                Image = TaskHelpers.BeautifyImage(Image, Info.TaskSettings);
+
+                if (Image == null)
+                {
+                    return false;
+                }
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.AddImageEffects))
+            {
+                Image = TaskHelpers.ApplyImageEffects(Image, Info.TaskSettings.ImageSettingsReference);
+
+                if (Image == null)
+                {
+                    DebugHelper.WriteLine("Error: Applying image effects resulted empty image.");
+                    return false;
+                }
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.AnnotateImage))
+            {
+                Image = TaskHelpers.AnnotateImage(Image, null, Info.TaskSettings, true);
+
+                if (Image == null)
+                {
+                    return false;
+                }
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.CopyImageToClipboard))
+            {
+                ClipboardHelpers.CopyImage(Image, Info.FileName);
+                DebugHelper.WriteLine("Image copied to clipboard.");
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.PinToScreen))
+            {
+                Image imageCopy = Image.CloneSafe();
+                TaskHelpers.PinToScreen(imageCopy, Info.TaskSettings);
+            }
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.SendImageToPrinter))
+            {
+                TaskHelpers.PrintImage(Image);
+            }
+
+            Info.Metadata.Image = Image;
+
+            if (Info.TaskSettings.AfterCaptureJob.HasFlagAny(AfterCaptureTasks.SaveImageToFile, AfterCaptureTasks.SaveImageToFileWithDialog, AfterCaptureTasks.DoOCR,
+                AfterCaptureTasks.UploadImageToHost, AfterCaptureTasks.AnalyzeImage))
+            {
+                ImageData imageData = TaskHelpers.PrepareImage(Image, Info.TaskSettings);
+                Data = imageData.ImageStream;
+                Info.FileName = Path.ChangeExtension(Info.FileName, imageData.ImageFormat.GetDescription());
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlagAny(AfterCaptureTasks.SaveImageToFile, AfterCaptureTasks.AnalyzeImage))
+                {
+                    string screenshotsFolder = TaskHelpers.GetScreenshotsFolder(Info.TaskSettings, Info.Metadata);
+                    string filePath = TaskHelpers.HandleExistsFile(screenshotsFolder, Info.FileName, Info.TaskSettings);
+
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        Info.FilePath = filePath;
+                        imageData.Write(Info.FilePath);
+                        DebugHelper.WriteLine("Image saved to file: " + Info.FilePath);
+                    }
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.SaveImageToFileWithDialog))
+                {
+                    using (SaveFileDialog sfd = new SaveFileDialog())
+                    {
+                        string initialDirectory = null;
+
+                        if (!string.IsNullOrEmpty(HelpersOptions.LastSaveDirectory) && Directory.Exists(HelpersOptions.LastSaveDirectory))
+                        {
+                            initialDirectory = HelpersOptions.LastSaveDirectory;
+                        }
+                        else
+                        {
+                            initialDirectory = TaskHelpers.GetScreenshotsFolder(Info.TaskSettings, Info.Metadata);
+                        }
+
+                        bool imageSaved;
+
+                        do
+                        {
+                            sfd.InitialDirectory = initialDirectory;
+                            sfd.FileName = Info.FileName;
+                            sfd.DefaultExt = Path.GetExtension(Info.FileName).Substring(1);
+                            sfd.Filter = string.Format("*{0}|*{0}|{1}|*.*", Path.GetExtension(Info.FileName), Strings.WorkerTask_AllFilesFilter);
+                            sfd.Title = Strings.UploadTask_DoAfterCaptureJobs_Choose_a_folder_to_save + " " + Path.GetFileName(Info.FileName);
+
+                            if (sfd.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(sfd.FileName))
+                            {
+                                Info.FilePath = sfd.FileName;
+                                HelpersOptions.LastSaveDirectory = Path.GetDirectoryName(Info.FilePath);
+                                imageSaved = imageData.Write(Info.FilePath);
+
+                                if (imageSaved)
+                                {
+                                    DebugHelper.WriteLine("Image saved to file with dialog: " + Info.FilePath);
+                                }
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        } while (!imageSaved);
+                    }
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.SaveThumbnailImageToFile))
+                {
+                    string thumbnailFileName, thumbnailFolder;
+
+                    if (!string.IsNullOrEmpty(Info.FilePath))
+                    {
+                        thumbnailFileName = Path.GetFileName(Info.FilePath);
+                        thumbnailFolder = Path.GetDirectoryName(Info.FilePath);
+                    }
+                    else
+                    {
+                        thumbnailFileName = Info.FileName;
+                        thumbnailFolder = TaskHelpers.GetScreenshotsFolder(Info.TaskSettings, Info.Metadata);
+                    }
+
+                    Info.ThumbnailFilePath = TaskHelpers.CreateThumbnail(Image, thumbnailFolder, thumbnailFileName, Info.TaskSettings);
+
+                    if (!string.IsNullOrEmpty(Info.ThumbnailFilePath))
+                    {
+                        DebugHelper.WriteLine("Thumbnail saved to file: " + Info.ThumbnailFilePath);
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private void DoFileJobs()
+        {
+            if (!string.IsNullOrEmpty(Info.FilePath) && File.Exists(Info.FilePath))
+            {
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.PerformActions) && Info.TaskSettings.ExternalPrograms != null)
+                {
+                    IEnumerable<ExternalProgram> actions = Info.TaskSettings.ExternalPrograms.Where(x => x.IsActive);
+
+                    if (actions.Count() > 0)
+                    {
+                        bool isFileModified = false;
+                        string fileName = Info.FileName;
+
+                        foreach (ExternalProgram fileAction in actions)
+                        {
+                            string modifiedPath = fileAction.Run(Info.FilePath);
+
+                            if (!string.IsNullOrEmpty(modifiedPath))
+                            {
+                                isFileModified = true;
+                                Info.FilePath = modifiedPath;
+
+                                if (Data != null)
+                                {
+                                    Data.Dispose();
+                                }
+
+                                fileAction.DeletePendingInputFile();
+                            }
+                        }
+
+                        if (isFileModified)
+                        {
+                            string extension = FileHelpers.GetFileNameExtension(Info.FilePath);
+                            Info.FileName = FileHelpers.ChangeFileNameExtension(fileName, extension);
+
+                            LoadFileStream();
+                        }
+                    }
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.CopyFileToClipboard))
+                {
+                    ClipboardHelpers.CopyFile(Info.FilePath);
+                }
+                else if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.CopyFilePathToClipboard))
+                {
+                    ClipboardHelpers.CopyText(Info.FilePath);
+                }
+                else if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.CopyFolderPathToClipboard))
+                {
+                    ClipboardHelpers.CopyText(Path.GetDirectoryName(Info.FilePath));
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowInExplorer))
+                {
+                    FileHelpers.OpenFolderWithFile(Info.FilePath);
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.AnalyzeImage) && Info.DataType == EDataType.Image)
+                {
+                    TaskHelpers.AnalyzeImage(Info.FilePath, Info.TaskSettings);
+                }
+
+                if (Info.TaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ScanQRCode) && Info.DataType == EDataType.Image)
+                {
+                    TaskHelpers.OpenQRCodeScanFromImageFile(Info.FilePath);
+                }
+            }
+        }
+
+        private void DoTextJobs()
+        {
+            if (Info.TaskSettings.AdvancedSettings.TextTaskSaveAsFile)
+            {
+                string screenshotsFolder = TaskHelpers.GetScreenshotsFolder(Info.TaskSettings);
+                string filePath = TaskHelpers.HandleExistsFile(screenshotsFolder, Info.FileName, Info.TaskSettings);
+
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    Info.FilePath = filePath;
+                    FileHelpers.CreateDirectoryFromFilePath(Info.FilePath);
+                    File.WriteAllText(Info.FilePath, Text, Encoding.UTF8);
+                    DebugHelper.WriteLine("Text saved to file: " + Info.FilePath);
+                }
+            }
+
+            byte[] byteArray = Encoding.UTF8.GetBytes(Text);
+            Data = new MemoryStream(byteArray);
+        }
+
+        private void DoAfterUploadJobs()
+        {
+            try
+            {
+                if (Info.TaskSettings.UploadSettings.URLRegexReplace)
+                {
+                    Info.Result.URL = Regex.Replace(Info.Result.URL, Info.TaskSettings.UploadSettings.URLRegexReplacePattern,
+                        Info.TaskSettings.UploadSettings.URLRegexReplaceReplacement);
+                }
+
+                if (Info.TaskSettings.AdvancedSettings.ResultForceHTTPS)
+                {
+                    Info.Result.ForceHTTPS();
+                }
+
+                if (Info.Job != TaskJob.ShareURL && (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.UseURLShortener) || Info.Job == TaskJob.ShortenURL ||
+                    (Info.TaskSettings.AdvancedSettings.AutoShortenURLLength > 0 && Info.Result.URL.Length > Info.TaskSettings.AdvancedSettings.AutoShortenURLLength)))
+                {
+                    UploadResult result = ShortenURL(Info.Result.URL);
+
+                    if (result != null)
+                    {
+                        Info.Result.ShortenedURL = result.ShortenedURL;
+                        Info.Result.Errors.Add(result.Errors);
+                    }
+                }
+
+                if (Info.Job != TaskJob.ShortenURL && (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.ShareURL) || Info.Job == TaskJob.ShareURL))
+                {
+                    UploadResult result = ShareURL(Info.Result.ToString());
+
+                    if (result != null)
+                    {
+                        Info.Result.Errors.Add(result.Errors);
+                    }
+
+                    if (Info.Job == TaskJob.ShareURL)
+                    {
+                        Info.Result.IsURLExpected = false;
+                    }
+                }
+
+                if (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.CopyURLToClipboard))
+                {
+                    string txt;
+
+                    if (!string.IsNullOrEmpty(Info.TaskSettings.AdvancedSettings.ClipboardContentFormat))
+                    {
+                        txt = new UploadInfoParser().Parse(Info, Info.TaskSettings.AdvancedSettings.ClipboardContentFormat);
+                    }
+                    else
+                    {
+                        txt = Info.Result.ToString();
+                    }
+
+                    if (!string.IsNullOrEmpty(txt))
+                    {
+                        ClipboardHelpers.CopyText(txt);
+                    }
+                }
+
+                if (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.OpenURL))
+                {
+                    string result;
+
+                    if (!string.IsNullOrEmpty(Info.TaskSettings.AdvancedSettings.OpenURLFormat))
+                    {
+                        result = new UploadInfoParser().Parse(Info, Info.TaskSettings.AdvancedSettings.OpenURLFormat);
+                    }
+                    else
+                    {
+                        result = Info.Result.ToString();
+                    }
+
+                    URLHelpers.OpenURL(result);
+                }
+
+                if (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.ShowQRCode))
+                {
+                    threadWorker.InvokeAsync(() => TaskHelpers.OpenQRCode(Info.Result.ToString()));
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+                AddErrorMessage(e.ToString());
+            }
+        }
+
+        public UploadResult UploadData(IGenericUploaderService service, Stream stream, string fileName)
+        {
+            if (!service.CheckConfig(Program.UploadersConfig))
+            {
+                return GetInvalidConfigResult(service);
+            }
+
+            uploader = service.CreateUploader(Program.UploadersConfig, taskReferenceHelper);
+
+            if (uploader != null)
+            {
+                uploader.Errors.DefaultTitle = string.Format(Strings.WorkerTask_ErrorTitle, service.ServiceName);
+                uploader.BufferSize = (int)Math.Pow(2, Program.Settings.BufferSizePower) * 1024;
+                uploader.ProgressChanged += uploader_ProgressChanged;
+
+                if (Info.TaskSettings.AfterUploadJob.HasFlag(AfterUploadTasks.CopyURLToClipboard) && Info.TaskSettings.AdvancedSettings.EarlyCopyURL)
+                {
+                    uploader.EarlyURLCopyRequested += url =>
+                    {
+                        ClipboardHelpers.CopyText(url);
+                        EarlyURLCopied = true;
+                    };
+                }
+
+                fileName = URLHelpers.RemoveBidiControlCharacters(fileName);
+
+                if (Info.TaskSettings.UploadSettings.FileUploadReplaceProblematicCharacters)
+                {
+                    fileName = URLHelpers.ReplaceReservedCharacters(fileName, "_");
+                }
+
+                Info.UploadDuration = Stopwatch.StartNew();
+
+                UploadResult result = uploader.Upload(stream, fileName);
+
+                Info.UploadDuration.Stop();
+
+                // The answer coming back the way the instruction went out. Only ever set
+                // by the Modlight uploader; for every other destination it stays null and
+                // this is one field copy that changes nothing.
+                Info.ModlightLandedFolderId = taskReferenceHelper?.ModlightLandedFolderId;
+
+                return result;
+            }
+
+            return null;
+        }
+
+        public UploadResult UploadImage(Stream stream, string fileName)
+        {
+            ImageUploaderService service = UploaderFactory.GetImageUploaderService(Info.TaskSettings.ImageDestination);
+
+            return UploadData(service, stream, fileName);
+        }
+
+        public UploadResult UploadText(Stream stream, string fileName)
+        {
+            TextUploaderService service = UploaderFactory.GetTextUploaderService(Info.TaskSettings.TextDestination);
+
+            return UploadData(service, stream, fileName);
+        }
+
+        public UploadResult UploadFile(Stream stream, string fileName)
+        {
+            FileUploaderService service = UploaderFactory.GetFileUploaderService(Info.TaskSettings.GetFileDestinationByDataType(Info.DataType));
+
+            return UploadData(service, stream, fileName);
+        }
+
+        public UploadResult ShortenURL(string url)
+        {
+            URLShortenerService service = UploaderFactory.GetURLShortenerService(Info.TaskSettings.URLShortenerDestination);
+
+            if (!service.CheckConfig(Program.UploadersConfig))
+            {
+                return GetInvalidConfigResult(service);
+            }
+
+            URLShortener urlShortener = service.CreateShortener(Program.UploadersConfig, taskReferenceHelper);
+
+            if (urlShortener != null)
+            {
+                return urlShortener.ShortenURL(url);
+            }
+
+            return null;
+        }
+
+        public UploadResult ShareURL(string url)
+        {
+            if (!string.IsNullOrEmpty(url))
+            {
+                URLSharingService service = UploaderFactory.GetURLSharingService(Info.TaskSettings.URLSharingServiceDestination);
+
+                if (!service.CheckConfig(Program.UploadersConfig))
+                {
+                    return GetInvalidConfigResult(service);
+                }
+
+                URLSharer urlSharer = service.CreateSharer(Program.UploadersConfig, taskReferenceHelper);
+
+                if (urlSharer != null)
+                {
+                    return urlSharer.ShareURL(url);
+                }
+            }
+
+            return null;
+        }
+
+        private UploadResult GetInvalidConfigResult(IUploaderService uploaderService)
+        {
+            UploadResult ur = new UploadResult();
+
+            string message = string.Format(Strings.WorkerTask_GetInvalidConfigResult__0__configuration_is_invalid_or_missing__Please_check__Destination_settings__window_to_configure_it_,
+                uploaderService.ServiceName);
+            DebugHelper.WriteLine(message);
+            ur.Errors.Add(message);
+
+            SignInWindowIntegration.Show();
+
+            return ur;
+        }
+
+        private bool DownloadFromURL(bool upload)
+        {
+            string url = Info.Result.URL.Trim();
+            Info.Result.URL = "";
+
+            if (!Info.TaskSettings.UploadSettings.FileUploadUseNamePattern)
+            {
+                try
+                {
+                    string fileName = WebHelpers.GetFileNameFromWebServerAsync(url).GetAwaiter().GetResult();
+
+                    if (!string.IsNullOrEmpty(fileName))
+                    {
+                        Info.FileName = FileHelpers.SanitizeFileName(fileName);
+                    }
+                }
+                catch (Exception e)
+                {
+                    DebugHelper.WriteException(e);
+                }
+            }
+
+            string screenshotsFolder = TaskHelpers.GetScreenshotsFolder(Info.TaskSettings);
+            Info.FilePath = TaskHelpers.HandleExistsFile(screenshotsFolder, Info.FileName, Info.TaskSettings);
+
+            if (!string.IsNullOrEmpty(Info.FilePath))
+            {
+                Info.Status = Strings.UploadTask_DownloadAndUpload_Downloading;
+                OnStatusChanged();
+
+                try
+                {
+                    WebHelpers.DownloadFileAsync(url, Info.FilePath).GetAwaiter().GetResult();
+
+                    if (upload)
+                    {
+                        LoadFileStream();
+                    }
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    DebugHelper.WriteException(e);
+                    MessageBox.Show(string.Format(Strings.UploadManager_DownloadAndUploadFile_Download_failed, e), "Modlight", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            return false;
+        }
+
+        private void DoOCR()
+        {
+            if (Image != null && Info.DataType == EDataType.Image)
+            {
+                TaskHelpers.OCRImage(Image, Info.TaskSettings).GetAwaiter().GetResult();
+            }
+        }
+
+        private bool LoadFileStream()
+        {
+            try
+            {
+                Data = new FileStream(Info.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            }
+            catch (Exception e)
+            {
+                e.ShowError();
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ThreadCompleted()
+        {
+            OnTaskCompleted();
+        }
+
+        private void uploader_ProgressChanged(ProgressManager progress)
+        {
+            if (progress != null)
+            {
+                Info.Progress = progress;
+
+                OnUploadProgressChanged();
+            }
+        }
+
+        private void OnStatusChanged()
+        {
+            if (StatusChanged != null)
+            {
+                threadWorker.InvokeAsync(() => StatusChanged(this));
+            }
+        }
+
+        private void OnImageReady()
+        {
+            if (ImageReady != null)
+            {
+                Bitmap image = null;
+
+                if (Image != null)
+                {
+                    image = (Bitmap)Image.Clone();
+                }
+
+                threadWorker.InvokeAsync(() =>
+                {
+                    using (image)
+                    {
+                        ImageReady(this, image);
+                    }
+                });
+            }
+        }
+
+        private void OnUploadStarted()
+        {
+            if (UploadStarted != null)
+            {
+                threadWorker.InvokeAsync(() => UploadStarted(this));
+            }
+        }
+
+        private void OnUploadCompleted()
+        {
+            if (UploadCompleted != null)
+            {
+                threadWorker.InvokeAsync(() => UploadCompleted(this));
+            }
+        }
+
+        private void OnUploadProgressChanged()
+        {
+            if (UploadProgressChanged != null)
+            {
+                threadWorker.InvokeAsync(() => UploadProgressChanged(this));
+            }
+        }
+
+        private void OnTaskCompleted()
+        {
+            Info.TaskEndTime = DateTime.Now;
+
+            if (StopRequested)
+            {
+                Status = TaskStatus.Stopped;
+                Info.Status = Strings.UploadTask_OnUploadCompleted_Stopped;
+            }
+            else if (Info.Result.IsError)
+            {
+                Status = TaskStatus.Failed;
+                Info.Status = Strings.TaskManager_task_UploadCompleted_Error;
+            }
+            else
+            {
+                Status = TaskStatus.Completed;
+                Info.Status = Strings.UploadTask_OnUploadCompleted_Done;
+            }
+
+            TaskCompleted?.Invoke(this);
+
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (Data != null)
+            {
+                Data.Dispose();
+                Data = null;
+            }
+
+            if (!KeepImage && Image != null)
+            {
+                Image.Dispose();
+                Image = null;
+            }
+        }
+    }
+}

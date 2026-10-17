@@ -1,0 +1,338 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="using:ShareX"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:controls="using:ShareX.AvaloniaUI.Controls"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             mc:Ignorable="d"
+             d:DesignWidth="860"
+             d:DesignHeight="720"
+             x:Class="ShareX.AccountSettingsView"
+             x:DataType="local:AccountSettingsViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Grid.page-title">
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style Selector="TextBlock.page-title-text">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.page-title-icon">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="Margin" Value="0,1,0,3"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.field-label">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="SelectableTextBlock.field-value">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- Background.Popup, which is the CARD colour, not Background.Panel, which is the
+             SIDE PANEL's. The two are the same shade in twelve of the fourteen skins and
+             the difference never showed; deco and riso in light mode give the panel a
+             saturated navy, so every card on every settings page was navy with the page's
+             own dark text on it - 1.22:1 measured off a screenshot. -->
+        <Style Selector="Border.section-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="10,4"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <!-- Profile -->
+        <ScrollViewer controls:SettingsSearch.PageId="account.profile" IsVisible="{Binding IsProfilePage}">
+            <StackPanel Margin="28,20,28,36" MaxWidth="820" HorizontalAlignment="Stretch">
+                <Grid Classes="page-title" controls:SettingsSearch.IsPageTitle="True" ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                    <TextBlock Classes="icon page-title-icon" Text="{x:Static theming:LucideIcons.circle_user_round}"/>
+                    <TextBlock Grid.Column="1" Classes="page-title-text" Text="{x:Static res:Strings.SettingsWindow_AccountProfile}"/>
+                </Grid>
+
+                <!-- Wrapped in an availability container, not simply hidden: the search box
+                     assigns IsVisible to every control marked IsPanel as it filters, so a
+                     binding on the panel itself is overwritten the first time somebody types.
+                     A container above it is the mechanism the other pages already use. -->
+                <!-- This is the page the window opens on, so on a machine that has never
+                     signed in it is the first thing anybody sees. It used to be one 130px
+                     card at the top of a 660px pane, which reads as a page that failed to
+                     load rather than a question waiting for an answer. Same card, told
+                     properly: what signing in actually gets you, centred in a box tall
+                     enough to look deliberate. -->
+                <StackPanel controls:SettingsSearch.IsAvailabilityContainer="True" IsVisible="{Binding IsSignedOut}">
+                    <Border Classes="section-card" MinHeight="380" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="10" MaxWidth="440" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.circle_user_round}"
+                                       FontSize="44"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"/>
+                            <TextBlock Classes="section-title"
+                                       HorizontalAlignment="Center"
+                                       Text="{x:Static res:Strings.SettingsWindow_AccountSignedOut}"/>
+                            <TextBlock Classes="hint"
+                                       TextAlignment="Center"
+                                       Text="{x:Static res:Strings.SettingsWindow_AccountSignedOutHint}"/>
+                            <StackPanel Spacing="7" Margin="0,6,0,2">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.upload}" FontSize="15" VerticalAlignment="Top"/>
+                                    <TextBlock Grid.Column="1" Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountSignedOutUploads}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.images}" FontSize="15" VerticalAlignment="Top"/>
+                                    <TextBlock Grid.Column="1" Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountSignedOutLibrary}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.palette}" FontSize="15" VerticalAlignment="Top"/>
+                                    <TextBlock Grid.Column="1" Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountSignedOutSync}"/>
+                                </Grid>
+                            </StackPanel>
+                            <Button Classes="compact"
+                                    HorizontalAlignment="Center"
+                                    Content="{x:Static res:Strings.MainMenuBuilder_SignIn}"
+                                    Click="OnSignInClick"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel controls:SettingsSearch.IsAvailabilityContainer="True" IsVisible="{Binding IsSignedIn}">
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                <!-- The picture, the initials or the person glyph, exactly as the
+                                     panel picks between them. -->
+                                <Border Width="64"
+                                        Height="64"
+                                        CornerRadius="32"
+                                        ClipToBounds="True"
+                                        Background="{DynamicResource ShareX.Brush.Control.Background}"
+                                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.circle_user}"
+                                                   FontSize="34"
+                                                   IsVisible="{Binding Avatar.HasGlyph}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Avatar.Initials}"
+                                                   FontSize="24"
+                                                   FontWeight="SemiBold"
+                                                   IsVisible="{Binding Avatar.HasInitials}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        <Image Source="{Binding Avatar.Image}"
+                                               IsVisible="{Binding Avatar.HasImage}"
+                                               Stretch="UniformToFill"/>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <SelectableTextBlock Text="{Binding DisplayName}" FontSize="18" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Classes="field-value" Text="{Binding Email}"/>
+                                    <SelectableTextBlock Classes="field-value" Text="{Binding Host}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountAvatarHint}"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Classes="compact" Click="OnOpenProfileClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.external_link}" FontSize="15"/>
+                                        <TextBlock Text="{x:Static res:Strings.SettingsWindow_AccountOpenProfile}" FontWeight="Normal"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="compact"
+                                        Content="{x:Static res:Strings.SettingsWindow_AccountRefresh}"
+                                        Click="OnRefreshClick"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding HasStatus}">
+                                <ProgressBar Width="16" Height="16" IsIndeterminate="True" IsVisible="{Binding IsBusy}"/>
+                                <TextBlock Grid.Column="1" Classes="hint" Text="{Binding Status}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountStorageUsed}"/>
+                            <SelectableTextBlock Classes="field-value" Text="{Binding QuotaText}"/>
+                            <ProgressBar Height="8"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="{Binding QuotaPercent}"
+                                         IsVisible="{Binding HasQuotaBar}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountSecurity}"/>
+                            <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountPasswordHint}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Classes="compact" Click="OnChangePasswordClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.key_round}" FontSize="15"/>
+                                        <TextBlock Text="{x:Static res:Strings.SettingsWindow_AccountChangePassword}" FontWeight="Normal"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="compact" Click="OnSignOutClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.log_out}" FontSize="15"/>
+                                        <TextBlock Text="{x:Static res:Strings.SettingsWindow_AccountSignOut}" FontWeight="Normal"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Links and privacy -->
+        <ScrollViewer controls:SettingsSearch.PageId="account.links" IsVisible="{Binding IsLinksPage}">
+            <StackPanel Margin="28,20,28,36" MaxWidth="820" HorizontalAlignment="Stretch">
+                <Grid Classes="page-title" controls:SettingsSearch.IsPageTitle="True" ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                    <TextBlock Classes="icon page-title-icon" Text="{x:Static theming:LucideIcons.link}"/>
+                    <TextBlock Grid.Column="1" Classes="page-title-text" Text="{x:Static res:Strings.SettingsWindow_AccountLinks}"/>
+                </Grid>
+
+                <!-- Wrapped in an availability container, not simply hidden: the search box
+                     assigns IsVisible to every control marked IsPanel as it filters, so a
+                     binding on the panel itself is overwritten the first time somebody types.
+                     A container above it is the mechanism the other pages already use. -->
+                <StackPanel controls:SettingsSearch.IsAvailabilityContainer="True" IsVisible="{Binding IsSignedOut}">
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountSignedOut}"/>
+                            <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountSignedOutHint}"/>
+                            <Button Classes="compact"
+                                    HorizontalAlignment="Left"
+                                    Content="{x:Static res:Strings.MainMenuBuilder_SignIn}"
+                                    Click="OnSignInClick"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel controls:SettingsSearch.IsAvailabilityContainer="True" IsVisible="{Binding IsSignedIn}">
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountLinkShape}"/>
+                            <Grid ColumnDefinitions="190,*" ColumnSpacing="8" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                                <TextBlock Classes="field-label" Text="{x:Static res:Strings.SettingsWindow_AccountDomain}"/>
+                                <SelectableTextBlock Grid.Column="1" Classes="field-value" Text="{Binding Host}"/>
+
+                                <TextBlock Grid.Row="1" Classes="field-label" Text="{x:Static res:Strings.SettingsWindow_AccountTag}"/>
+                                <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="field-value" Text="{Binding Tag}"/>
+
+                                <TextBlock Grid.Row="2" Classes="field-label" Text="{x:Static res:Strings.SettingsWindow_AccountLinkPreview}"/>
+                                <SelectableTextBlock Grid.Row="2" Grid.Column="1" Classes="field-value" Text="{Binding LinkPreview}"/>
+                            </Grid>
+                            <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountDomainHint}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountPrivacy}"/>
+                            <Grid ColumnDefinitions="190,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="6">
+                                <TextBlock Classes="field-label" Text="{x:Static res:Strings.SettingsWindow_AccountPrivateByDefault}"/>
+                                <SelectableTextBlock Grid.Column="1" Classes="field-value" Text="{Binding PrivacyText}"/>
+
+                                <TextBlock Grid.Row="1" Classes="field-label" Text="{x:Static res:Strings.SettingsWindow_AccountCopiedLink}"/>
+                                <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="field-value" Text="{Binding CopyLinkText}"/>
+                            </Grid>
+                            <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountPrivacyHint}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountNaming}"/>
+                        <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountNamingHint}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountFilePassword}"/>
+                        <TextBlock Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountFilePasswordHint}"/>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                       FontSize="16"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"
+                                       VerticalAlignment="Top"/>
+                            <TextBlock Grid.Column="1" Classes="hint" Text="{x:Static res:Strings.SettingsWindow_AccountFilePasswordWarning}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Button Classes="compact" HorizontalAlignment="Left" Click="OnOpenProfileClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.external_link}" FontSize="15"/>
+                        <TextBlock Text="{x:Static res:Strings.SettingsWindow_AccountOpenProfile}" FontWeight="Normal"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Files and space -->
+        <ScrollViewer controls:SettingsSearch.PageId="account.storage" IsVisible="{Binding IsStoragePage}">
+            <StackPanel Margin="28,20,28,36" MaxWidth="820" HorizontalAlignment="Stretch">
+                <Grid Classes="page-title" controls:SettingsSearch.IsPageTitle="True" ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                    <TextBlock Classes="icon page-title-icon" Text="{x:Static theming:LucideIcons.hard_drive}"/>
+                    <TextBlock Grid.Column="1" Classes="page-title-text" Text="{x:Static res:Strings.SettingsWindow_AccountStorage}"/>
+                </Grid>
+
+                <Border Classes="section-card" controls:SettingsSearch.IsPanel="True">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="section-title" Text="{x:Static res:Strings.SettingsWindow_AccountDefaultFolder}"/>
+                        <!-- Filled in code-behind: the picker talks to the server for the
+                             folder list, so it is a control with a life of its own rather
+                             than markup. -->
+                        <ContentControl x:Name="FolderSlot"/>
+                        <TextBlock Classes="hint" Text="{x:Static res:Strings.TaskSettingsWindow_ModlightFolderHint}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- The duplicate scan lands here; see the trash and library work. Left as
+                     an empty container rather than a promise on screen, so nothing claims
+                     a button exists before it does. -->
+                <ContentControl x:Name="DuplicatesSlot"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

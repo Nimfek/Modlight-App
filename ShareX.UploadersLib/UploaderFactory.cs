@@ -1,0 +1,101 @@
+﻿#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
+
+#endregion License Information (GPL v3)
+
+using ShareX.HelpersLib;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace ShareX.UploadersLib
+{
+    public static class UploaderFactory
+    {
+        public static List<IUploaderService> AllServices { get; } = new List<IUploaderService>();
+        public static List<IGenericUploaderService> AllGenericUploaderServices { get; } = new List<IGenericUploaderService>();
+        public static Dictionary<ImageDestination, ImageUploaderService> ImageUploaderServices { get; } = CacheServices<ImageDestination, ImageUploaderService>();
+        public static Dictionary<TextDestination, TextUploaderService> TextUploaderServices { get; } = CacheServices<TextDestination, TextUploaderService>();
+        public static Dictionary<FileDestination, FileUploaderService> FileUploaderServices { get; } = CacheServices<FileDestination, FileUploaderService>();
+        public static Dictionary<UrlShortenerType, URLShortenerService> URLShortenerServices { get; } = CacheServices<UrlShortenerType, URLShortenerService>();
+        public static Dictionary<URLSharingServices, URLSharingService> URLSharingServices { get; } = CacheServices<URLSharingServices, URLSharingService>();
+
+        private static Dictionary<T, T2> CacheServices<T, T2>() where T2 : UploaderService<T>
+        {
+            IEnumerable<T2> instances = Helpers.GetInstances<T2>();
+
+            AllServices.AddRange(instances.OfType<IUploaderService>());
+            AllGenericUploaderServices.AddRange(instances.OfType<IGenericUploaderService>());
+
+            return instances.ToDictionary(x => x.EnumValue, x => x);
+        }
+
+        public static ImageUploaderService GetImageUploaderService(ImageDestination destination)
+        {
+            return Resolve(ImageUploaderServices, destination, ImageDestination.Modlight);
+        }
+
+        public static TextUploaderService GetTextUploaderService(TextDestination destination)
+        {
+            return Resolve(TextUploaderServices, destination, TextDestination.Modlight);
+        }
+
+        public static FileUploaderService GetFileUploaderService(FileDestination destination)
+        {
+            return Resolve(FileUploaderServices, destination, FileDestination.Modlight);
+        }
+
+        public static URLShortenerService GetURLShortenerService(UrlShortenerType destination)
+        {
+            return Resolve(URLShortenerServices, destination, UrlShortenerType.Modlight);
+        }
+
+        public static URLSharingService GetURLSharingService(URLSharingServices destination)
+        {
+            return Resolve(URLSharingServices, destination, UploadersLib.URLSharingServices.GoogleImageSearch);
+        }
+
+        /// <summary>
+        /// Looks a destination up, answering with the fallback instead of throwing when it is not there.
+        /// </summary>
+        /// <remarks>
+        /// The dictionaries are keyed on enum members, and a settings file written by an
+        /// older build names destinations this one no longer has. A name that no longer
+        /// parses is already handled - the deserializer leaves the field at its default -
+        /// but a number is not: an integer outside the enum's range becomes an undefined
+        /// member that no service is registered for, and the indexer answers that with a
+        /// KeyNotFoundException on the upload path. Falling back keeps a stale config
+        /// pointing somewhere real instead of taking the app down with it.
+        /// </remarks>
+        private static T2 Resolve<T, T2>(Dictionary<T, T2> services, T destination, T fallback)
+        {
+            if (services.TryGetValue(destination, out T2 service))
+            {
+                return service;
+            }
+
+            DebugHelper.WriteLine($"Unknown {typeof(T).Name} \"{destination}\" in settings, using {fallback} instead.");
+
+            return services[fallback];
+        }
+    }
+}

@@ -1,0 +1,128 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:ShareX"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:controls="using:ShareX.AvaloniaUI.Controls"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        mc:Ignorable="d"
+        d:DesignWidth="1120"
+        d:DesignHeight="780"
+        x:Class="ShareX.SettingsWindow"
+        Title="{x:Static res:Strings.SettingsWindow_WindowTitle}"
+        Width="1120"
+        Height="780"
+        MinWidth="950"
+        MinHeight="700"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <!-- The one page header, drawn by the shell from the section list rather than by
+             each page, so a page with almost nothing on it - "not signed in" is one card -
+             still opens with a title, its place in the list and a sentence saying what it
+             decides, instead of a small box in the corner of an empty pane. -->
+        <Style Selector="TextBlock.header-group">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="TextBlock.header-icon">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.header-title">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.header-description">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxWidth" Value="640"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid x:Name="Shell"
+              Background="{DynamicResource ShareX.Brush.Background.Main}"
+              ColumnDefinitions="252,*">
+            <Border Grid.Column="0"
+                    Padding="8"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,0,1,0">
+                <controls:SettingsNavigation x:Name="Navigation"
+                                             SearchRoot="{Binding #Sections}"/>
+            </Border>
+
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                <Border Grid.Row="0"
+                        Padding="28,18,28,16"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="0,0,0,1">
+                    <!-- Same measure and the same 28px inset as a page below it, so the
+                         title sits over the first card rather than near it. -->
+                    <StackPanel MaxWidth="820" HorizontalAlignment="Stretch" Spacing="5">
+                        <TextBlock x:Name="HeaderGroup" Classes="header-group"/>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <TextBlock x:Name="HeaderIcon" Classes="icon header-icon"/>
+                            <TextBlock x:Name="HeaderTitle" Grid.Column="1" Classes="header-title"/>
+                        </Grid>
+                        <TextBlock x:Name="HeaderDescription" Classes="header-description"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Every section of every host lives here at once, one visible at a time.
+                     One container rather than a ContentControl that swaps views, because the
+                     search box indexes the whole tree: a page that is not in the tree cannot
+                     be found by searching for something written on it. -->
+                <Grid x:Name="Sections" Grid.Row="1">
+                    <!-- Declared first so the host views, added in code, draw over it. It is
+                         only ever shown with every host hidden, which is the state that used
+                         to leave this pane blank under a heading belonging to a page the
+                         query had just filtered away. -->
+                    <StackPanel x:Name="NoResults"
+                                IsVisible="False"
+                                MaxWidth="440"
+                                Spacing="12"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.search_x}"
+                                   FontSize="38"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                        <TextBlock x:Name="NoResultsTitle"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="NoResultsHint"
+                                   FontSize="13"
+                                   FontWeight="Normal"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                        <Button x:Name="NoResultsNearest"
+                                IsVisible="False"
+                                HorizontalAlignment="Center"
+                                Click="OnNearestClick"/>
+                        <Button x:Name="NoResultsClear"
+                                HorizontalAlignment="Center"
+                                Content="{x:Static res:Strings.SettingsWindow_ClearSearch}"
+                                Click="OnClearSearchClick"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

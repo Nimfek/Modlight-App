@@ -1,0 +1,2432 @@
+﻿#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
+
+#endregion License Information (GPL v3)
+
+using ShareX.AvaloniaUI.Theming;
+using ShareX.AvaloniaUI.Windows;
+using ShareX.HelpersLib;
+using ShareX.HistoryLib;
+using ShareX.ImageEditor.Integration;
+using ShareX.ImageEffectsLib;
+using ShareX.Localization;
+using ShareX.Properties;
+using ShareX.ScreenCaptureLib;
+using ShareX.Tools;
+using ShareX.Tools.Integration;
+using ShareX.UploadersLib;
+using ShareX.UploadersLib.SharingServices;
+using SkiaSharp;
+using SkiaSharp.Views.Desktop;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MessageBox = ShareX.AvaloniaUI.MessageBox;
+using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
+using MessageBoxDefaultButton = ShareX.AvaloniaUI.MessageBoxDefaultButton;
+using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
+using MessageBoxResult = ShareX.AvaloniaUI.DialogResult;
+using ZXing;
+using ZXing.Common;
+using ZXing.QrCode;
+using ZXing.Windows.Compatibility;
+
+namespace ShareX
+{
+    public static class TaskHelpers
+    {
+        public static async Task ExecuteJob(HotkeyType job, string filePath = null)
+        {
+            await ExecuteJob(Program.DefaultTaskSettings, job, filePath);
+        }
+
+        public static async Task ExecuteJob(TaskSettings taskSettings)
+        {
+            await ExecuteJob(taskSettings, taskSettings.Job);
+        }
+
+        public static async Task ExecuteJob(TaskSettings taskSettings, HotkeyType job, string filePath = null)
+        {
+            if (job == HotkeyType.None) return;
+
+            DebugHelper.WriteLine("Executing: " + job.GetLocalizedDescription());
+
+            TaskSettings safeTaskSettings = TaskSettings.GetSafeTaskSettings(taskSettings);
+
+            switch (job)
+            {
+                // Upload
+                case HotkeyType.FileUpload:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        UploadManager.UploadFile(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        UploadManager.UploadFile(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.FolderUpload:
+                    UploadManager.UploadFolder(safeTaskSettings);
+                    break;
+                case HotkeyType.ClipboardUpload:
+                    UploadManager.ClipboardUpload(safeTaskSettings);
+                    break;
+                case HotkeyType.ClipboardUploadWithContentViewer:
+                    UploadManager.ClipboardUploadWithContentViewer(safeTaskSettings);
+                    break;
+                case HotkeyType.UploadText:
+                    await UploadManager.ShowTextUploadDialog(safeTaskSettings);
+                    break;
+                case HotkeyType.UploadURL:
+                    await UploadManager.UploadURL(safeTaskSettings);
+                    break;
+                case HotkeyType.DragDropUpload:
+                    OpenDropWindow(safeTaskSettings);
+                    break;
+                case HotkeyType.ShortenURL:
+                    await UploadManager.ShowShortenURLDialog(safeTaskSettings);
+                    break;
+                case HotkeyType.StopUploads:
+                    TaskManager.StopAllTasks();
+                    break;
+                // Screen capture
+                case HotkeyType.PrintScreen:
+                    new CaptureFullscreen().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.ActiveWindow:
+                    new CaptureActiveWindow().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.ActiveMonitor:
+                    new CaptureActiveMonitor().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.RectangleRegion:
+                    new CaptureRegion().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.RectangleLight:
+                    new CaptureRegion(RegionCaptureType.Light).Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.RectangleTransparent:
+                    new CaptureRegion(RegionCaptureType.Transparent).Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.CustomRegion:
+                    new CaptureCustomRegion().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.CustomWindow:
+                    new CaptureCustomWindow().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.LastRegion:
+                    new CaptureLastRegion().Capture(safeTaskSettings);
+                    break;
+                case HotkeyType.ScrollingCapture:
+                    await OpenScrollingCapture(safeTaskSettings);
+                    break;
+                case HotkeyType.AutoCapture:
+                    OpenAutoCapture(safeTaskSettings);
+                    break;
+                case HotkeyType.StartAutoCapture:
+                    StartAutoCapture(safeTaskSettings);
+                    break;
+                case HotkeyType.StopAutoCapture:
+                    StopAutoCapture();
+                    break;
+                // Screen record
+                case HotkeyType.ScreenRecorder:
+                    StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region, safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenRecorderActiveWindow:
+                    StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.ActiveWindow, safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenRecorderCustomRegion:
+                    StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.CustomRegion, safeTaskSettings);
+                    break;
+                case HotkeyType.StartScreenRecorder:
+                    StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.LastRegion, safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenRecorderGIF:
+                    StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region, safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenRecorderGIFActiveWindow:
+                    StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.ActiveWindow, safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenRecorderGIFCustomRegion:
+                    StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.CustomRegion, safeTaskSettings);
+                    break;
+                case HotkeyType.StartScreenRecorderGIF:
+                    StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.LastRegion, safeTaskSettings);
+                    break;
+                case HotkeyType.StopScreenRecording:
+                    StopScreenRecording();
+                    break;
+                case HotkeyType.PauseScreenRecording:
+                    PauseScreenRecording();
+                    break;
+                case HotkeyType.AbortScreenRecording:
+                    AbortScreenRecording();
+                    break;
+                // Tools
+                case HotkeyType.ColorPicker:
+                    ShowScreenColorPickerDialog(safeTaskSettings);
+                    break;
+                case HotkeyType.ScreenColorPicker:
+                    OpenScreenColorPicker(safeTaskSettings);
+                    break;
+                case HotkeyType.PinToScreen:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        PinToScreen(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        PinToScreen(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.PinToScreenFromScreen:
+                    PinToScreenFromScreen(safeTaskSettings);
+                    break;
+                case HotkeyType.PinToScreenFromClipboard:
+                    PinToScreenFromClipboard(safeTaskSettings);
+                    break;
+                case HotkeyType.PinToScreenFromFile:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        PinToScreen(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        PinToScreenFromFile(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.PinToScreenCloseAll:
+                    PinToScreenCloseAll(safeTaskSettings);
+                    break;
+                case HotkeyType.ImageEditor:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        AnnotateImageFromFile(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        OpenImageEditor(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.ImageEffects:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        OpenImageEffects(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        OpenImageEffects(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.ImageViewer:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        OpenImageViewer(filePath);
+                    }
+                    else
+                    {
+                        OpenImageViewer();
+                    }
+                    break;
+                case HotkeyType.BackgroundRemover:
+                    OpenBackgroundRemover(safeTaskSettings);
+                    break;
+                case HotkeyType.ImageCombiner:
+                    OpenImageCombiner(null, safeTaskSettings);
+                    break;
+                case HotkeyType.VideoConverter:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        OpenVideoConverter(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        OpenVideoConverter(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.AnalyzeImage:
+                    AnalyzeImage(safeTaskSettings);
+                    break;
+                case HotkeyType.OCR:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        await OCRImage(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        await OCRImage(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.QRCode:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        OpenQRCodeScanFromImageFile(filePath);
+                    }
+                    else
+                    {
+                        OpenQRCode();
+                    }
+                    break;
+                case HotkeyType.QRCodeDecodeFromScreen:
+                    OpenQRCodeScanScreen();
+                    break;
+                case HotkeyType.QRCodeScanRegion:
+                    OpenQRCodeScanRegion();
+                    break;
+                case HotkeyType.Metadata:
+                    OpenMetadataWindow(filePath);
+                    break;
+                case HotkeyType.StripMetadata:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        StripMetadata(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        StripMetadata(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.IndexFolder:
+                    UploadManager.IndexFolder();
+                    break;
+                case HotkeyType.ActiveWindowBorderless:
+                    MakeActiveWindowBorderless(safeTaskSettings);
+                    break;
+                case HotkeyType.ActiveWindowTopMost:
+                    MakeActiveWindowTopMost(safeTaskSettings);
+                    break;
+                // Other
+                case HotkeyType.DisableHotkeys:
+                    ToggleHotkeys(safeTaskSettings);
+                    break;
+                case HotkeyType.OpenMainWindow:
+                    Program.MainForm.ForceActivate();
+                    break;
+                case HotkeyType.OpenScreenshotsFolder:
+                    OpenScreenshotsFolder();
+                    break;
+                case HotkeyType.OpenHistory:
+                    OpenHistory();
+                    break;
+                case HotkeyType.OpenImageHistory:
+                    OpenImageHistory();
+                    break;
+                case HotkeyType.ToggleTrayMenu:
+                    ToggleTrayMenu();
+                    break;
+                case HotkeyType.ExitShareX:
+                    Program.MainForm.ForceClose();
+                    break;
+            }
+        }
+
+        public static ImageData PrepareImage(Image img, TaskSettings taskSettings)
+        {
+            ImageData imageData = new ImageData();
+            imageData.ImageStream = SaveImageAsStream(img, taskSettings.ImageSettings.ImageFormat, taskSettings);
+            imageData.ImageFormat = taskSettings.ImageSettings.ImageFormat;
+
+            if (taskSettings.ImageSettings.ImageAutoUseJPEG && taskSettings.ImageSettings.ImageFormat != EImageFormat.JPEG &&
+                imageData.ImageStream.Length > taskSettings.ImageSettings.ImageAutoUseJPEGSize * 1000)
+            {
+                imageData.ImageStream.Dispose();
+
+                using (Bitmap newImage = ImageHelpers.FillBackground(img, Color.White))
+                {
+                    if (taskSettings.ImageSettings.ImageAutoJPEGQuality)
+                    {
+                        imageData.ImageStream = ImageHelpers.SaveJPEGAutoQuality(newImage, taskSettings.ImageSettings.ImageAutoUseJPEGSize * 1000, 2, 70, 100);
+                    }
+                    else
+                    {
+                        imageData.ImageStream = ImageHelpers.SaveJPEG(newImage, taskSettings.ImageSettings.ImageJPEGQuality);
+                    }
+                }
+
+                imageData.ImageFormat = EImageFormat.JPEG;
+            }
+
+            return imageData;
+        }
+
+        public static string CreateThumbnail(Bitmap bmp, string folder, string fileName, TaskSettings taskSettings)
+        {
+            if ((taskSettings.ImageSettings.ThumbnailWidth > 0 || taskSettings.ImageSettings.ThumbnailHeight > 0) && (!taskSettings.ImageSettings.ThumbnailCheckSize ||
+                (bmp.Width > taskSettings.ImageSettings.ThumbnailWidth && bmp.Height > taskSettings.ImageSettings.ThumbnailHeight)))
+            {
+                string thumbnailFileName = Path.GetFileNameWithoutExtension(fileName) + taskSettings.ImageSettings.ThumbnailName + ".jpg";
+                string thumbnailFilePath = HandleExistsFile(folder, thumbnailFileName, taskSettings);
+
+                if (!string.IsNullOrEmpty(thumbnailFilePath))
+                {
+                    using (Bitmap thumbnail = (Bitmap)bmp.Clone())
+                    using (Bitmap resizedImage = new Resize(taskSettings.ImageSettings.ThumbnailWidth, taskSettings.ImageSettings.ThumbnailHeight).Apply(thumbnail))
+                    using (Bitmap newImage = ImageHelpers.FillBackground(resizedImage, Color.White))
+                    {
+                        ImageHelpers.SaveJPEG(newImage, thumbnailFilePath, 90);
+                        return thumbnailFilePath;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public static MemoryStream SaveImageAsStream(Image img, EImageFormat imageFormat, TaskSettings taskSettings)
+        {
+            return SaveImageAsStream(img, imageFormat, taskSettings.ImageSettings.ImagePNGBitDepth,
+                taskSettings.ImageSettings.ImageJPEGQuality, taskSettings.ImageSettings.ImageGIFQuality);
+        }
+
+        public static MemoryStream SaveImageAsStream(Image img, EImageFormat imageFormat, PNGBitDepth pngBitDepth = PNGBitDepth.Automatic,
+            int jpegQuality = 90, GIFQuality gifQuality = GIFQuality.Default)
+        {
+            MemoryStream ms = new MemoryStream();
+
+            try
+            {
+                switch (imageFormat)
+                {
+                    case EImageFormat.PNG:
+                        ImageHelpers.SavePNG(img, ms, pngBitDepth);
+
+                        if (Program.Settings.PNGStripColorSpaceInformation)
+                        {
+                            using (ms)
+                            {
+                                return ImageHelpers.PNGStripColorSpaceInformation(ms);
+                            }
+                        }
+                        break;
+                    case EImageFormat.JPEG:
+                        using (Bitmap newImage = ImageHelpers.FillBackground(img, Color.White))
+                        {
+                            ImageHelpers.SaveJPEG(newImage, ms, jpegQuality);
+                        }
+                        break;
+                    case EImageFormat.GIF:
+                        ImageHelpers.SaveGIF(img, ms, gifQuality);
+                        break;
+                    case EImageFormat.BMP:
+                        img.Save(ms, ImageFormat.Bmp);
+                        break;
+                    case EImageFormat.TIFF:
+                        img.Save(ms, ImageFormat.Tiff);
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+                e.ShowError();
+            }
+
+            return ms;
+        }
+
+        public static void SaveImageAsFile(Bitmap bmp, TaskSettings taskSettings, bool overwriteFile = false)
+        {
+            using (ImageData imageData = PrepareImage(bmp, taskSettings))
+            {
+                string screenshotsFolder = GetScreenshotsFolder(taskSettings);
+                string fileName = GetFileName(taskSettings, imageData.ImageFormat.GetDescription(), bmp);
+                string filePath = Path.Combine(screenshotsFolder, fileName);
+
+                if (!overwriteFile)
+                {
+                    filePath = HandleExistsFile(filePath, taskSettings);
+                }
+
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    imageData.Write(filePath);
+                    DebugHelper.WriteLine("Image saved to file: " + filePath);
+                }
+            }
+        }
+
+        public static string GetFileName(TaskSettings taskSettings, string extension, Bitmap bmp)
+        {
+            TaskMetadata metadata = new TaskMetadata(bmp);
+            return GetFileName(taskSettings, extension, metadata);
+        }
+
+        public static string GetFileName(TaskSettings taskSettings, string extension = null, TaskMetadata metadata = null)
+        {
+            string fileName;
+
+            NameParser nameParser = new NameParser(NameParserType.FileName)
+            {
+                AutoIncrementNumber = Program.Settings.NameParserAutoIncrementNumber,
+                MaxNameLength = taskSettings.AdvancedSettings.NamePatternMaxLength,
+                MaxTitleLength = taskSettings.AdvancedSettings.NamePatternMaxTitleLength,
+                CustomTimeZone = taskSettings.UploadSettings.UseCustomTimeZone ? taskSettings.UploadSettings.CustomTimeZone : null
+            };
+
+            if (metadata != null)
+            {
+                if (metadata.Image != null)
+                {
+                    nameParser.ImageWidth = metadata.Image.Width;
+                    nameParser.ImageHeight = metadata.Image.Height;
+                }
+
+                nameParser.WindowText = metadata.WindowTitle;
+                nameParser.ProcessName = metadata.ProcessName;
+            }
+
+            if (!string.IsNullOrEmpty(taskSettings.UploadSettings.NameFormatPatternActiveWindow) && !string.IsNullOrEmpty(nameParser.WindowText))
+            {
+                fileName = nameParser.Parse(taskSettings.UploadSettings.NameFormatPatternActiveWindow);
+            }
+            else
+            {
+                fileName = nameParser.Parse(taskSettings.UploadSettings.NameFormatPattern);
+            }
+
+            Program.Settings.NameParserAutoIncrementNumber = nameParser.AutoIncrementNumber;
+
+            if (!string.IsNullOrEmpty(extension))
+            {
+                fileName += "." + extension.TrimStart('.');
+            }
+
+            return fileName;
+        }
+
+        public static string GetScreenshotsFolder(TaskSettings taskSettings = null, TaskMetadata metadata = null)
+        {
+            string screenshotsFolder;
+
+            NameParser nameParser = new NameParser(NameParserType.FilePath);
+
+            if (metadata != null)
+            {
+                if (metadata.Image != null)
+                {
+                    nameParser.ImageWidth = metadata.Image.Width;
+                    nameParser.ImageHeight = metadata.Image.Height;
+                }
+
+                nameParser.WindowText = metadata.WindowTitle;
+                nameParser.ProcessName = metadata.ProcessName;
+            }
+
+            if (taskSettings != null && taskSettings.OverrideScreenshotsFolder && !string.IsNullOrEmpty(taskSettings.ScreenshotsFolder))
+            {
+                screenshotsFolder = nameParser.Parse(taskSettings.ScreenshotsFolder);
+            }
+            else
+            {
+                string subFolderPattern;
+
+                if (!string.IsNullOrEmpty(Program.Settings.SaveImageSubFolderPatternWindow) && !string.IsNullOrEmpty(nameParser.WindowText))
+                {
+                    subFolderPattern = Program.Settings.SaveImageSubFolderPatternWindow;
+                }
+                else
+                {
+                    subFolderPattern = Program.Settings.SaveImageSubFolderPattern;
+                }
+
+                string subFolderPath = nameParser.Parse(subFolderPattern);
+                screenshotsFolder = Path.Combine(Program.ScreenshotsParentFolder, subFolderPath);
+            }
+
+            return FileHelpers.GetAbsolutePath(screenshotsFolder);
+        }
+
+        public static void ShowAfterCaptureWindow(TaskSettings taskSettings, Action<AfterCaptureWindowResult> completed,
+            TaskMetadata metadata = null, string filePath = null)
+        {
+            if (!taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowAfterCaptureWindow))
+            {
+                completed(new AfterCaptureWindowResult(true, null));
+                return;
+            }
+
+            AfterCaptureWindowIntegration.Show(taskSettings, metadata, filePath, result =>
+            {
+                if (!result.Accepted)
+                {
+                    metadata?.Dispose();
+                }
+
+                completed(result);
+            });
+        }
+
+        public static void PrintImage(Image img)
+        {
+            if (Program.Settings.DontShowPrintSettingsDialog)
+            {
+                using (PrintHelper printHelper = new PrintHelper(img))
+                {
+                    printHelper.Settings = Program.Settings.PrintSettings;
+                    printHelper.Print();
+                }
+            }
+            else
+            {
+                PrintWindowIntegration.Show(
+                    img,
+                    Program.Settings.PrintSettings,
+                    owner: MainWindowIntegration.Instance);
+            }
+        }
+
+        public static Bitmap ApplyImageEffects(Bitmap bmp, TaskSettingsImage taskSettingsImage)
+        {
+            if (bmp != null)
+            {
+                bmp = ImageHelpers.NonIndexedBitmap(bmp);
+
+                if (taskSettingsImage.ShowImageEffectsWindowAfterCapture)
+                {
+                    ImageEffectsDialogResult result = ImageEffectsIntegration.ShowDialog(bmp,
+                        taskSettingsImage.ImageEffectPresets, taskSettingsImage.SelectedImageEffectPreset,
+                        ImageEffectsWindowMode.Editor);
+                    taskSettingsImage.SelectedImageEffectPreset = result.SelectedPresetIndex;
+                }
+
+                ImageEffectPreset imageEffect = null;
+
+                if (taskSettingsImage.UseRandomImageEffect)
+                {
+                    imageEffect = RandomFast.Pick(taskSettingsImage.ImageEffectPresets);
+                }
+                else if (taskSettingsImage.ImageEffectPresets.IsValidIndex(taskSettingsImage.SelectedImageEffectPreset))
+                {
+                    imageEffect = taskSettingsImage.ImageEffectPresets[taskSettingsImage.SelectedImageEffectPreset];
+                }
+
+                if (imageEffect != null)
+                {
+                    using (bmp)
+                    {
+                        return imageEffect.ApplyEffects(bmp);
+                    }
+                }
+            }
+
+            return bmp;
+        }
+
+        public static void AddDefaultExternalPrograms(TaskSettings taskSettings)
+        {
+            if (taskSettings.ExternalPrograms == null)
+            {
+                taskSettings.ExternalPrograms = new List<ExternalProgram>();
+            }
+
+            AddExternalProgramFromRegistry(taskSettings, "Paint", "mspaint.exe");
+            AddExternalProgramFromRegistry(taskSettings, "Paint.NET", "PaintDotNet.exe");
+            AddExternalProgramFromRegistry(taskSettings, "Adobe Photoshop", "Photoshop.exe");
+            AddExternalProgramFromRegistry(taskSettings, "IrfanView", "i_view32.exe");
+            AddExternalProgramFromRegistry(taskSettings, "XnView", "xnview.exe");
+        }
+
+        private static void AddExternalProgramFromRegistry(TaskSettings taskSettings, string name, string fileName)
+        {
+            if (!taskSettings.ExternalPrograms.Exists(x => x.Name == name))
+            {
+                try
+                {
+                    string filePath = RegistryHelpers.SearchProgramPath(fileName);
+
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        ExternalProgram externalProgram = new ExternalProgram(name, filePath);
+                        taskSettings.ExternalPrograms.Add(externalProgram);
+                    }
+                }
+                catch (Exception e)
+                {
+                    DebugHelper.WriteException(e);
+                }
+            }
+        }
+
+        public static string HandleExistsFile(string folder, string fileName, TaskSettings taskSettings)
+        {
+            string filePath = Path.Combine(folder, fileName);
+            return HandleExistsFile(filePath, taskSettings);
+        }
+
+        public static string HandleExistsFile(string filePath, TaskSettings taskSettings)
+        {
+            if (File.Exists(filePath))
+            {
+                switch (taskSettings.ImageSettings.FileExistAction)
+                {
+                    case FileExistAction.Ask:
+                        filePath = FileExistWindowIntegration.Show(filePath);
+                        break;
+                    case FileExistAction.UniqueName:
+                        filePath = FileHelpers.GetUniqueFilePath(filePath);
+                        break;
+                    case FileExistAction.Cancel:
+                        filePath = "";
+                        break;
+                }
+            }
+
+            return filePath;
+        }
+
+        public static void OpenDropWindow(TaskSettings taskSettings = null)
+        {
+            DragDropUploadWindowIntegration.Show(
+                Program.Settings.DropSize,
+                Program.Settings.DropOffset,
+                Program.Settings.DropAlignment,
+                Program.Settings.DropOpacity,
+                Program.Settings.DropHoverOpacity,
+                taskSettings);
+        }
+
+        public static void StartScreenRecording(ScreenRecordOutput outputType, ScreenRecordStartMethod startMethod, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            ScreenRecordManager.StartStopRecording(outputType, startMethod, taskSettings);
+        }
+
+        public static void StopScreenRecording()
+        {
+            ScreenRecordManager.StopRecording();
+        }
+
+        public static void PauseScreenRecording()
+        {
+            ScreenRecordManager.PauseScreenRecording();
+        }
+
+        public static void AbortScreenRecording()
+        {
+            ScreenRecordManager.AbortRecording();
+        }
+
+        public static async Task OpenScrollingCapture(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            await ScrollingCaptureWindowIntegration.StartStopAsync(taskSettings.CaptureSettingsReference.ScrollingCaptureOptions,
+                img => UploadManager.RunImageTask(img, taskSettings),
+                () => PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings));
+        }
+
+        public static void OpenAutoCapture(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            AutoCaptureWindowIntegration.Show(taskSettings);
+        }
+
+        public static void StartAutoCapture(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            AutoCaptureWindowIntegration.Start(taskSettings);
+        }
+
+        public static void StopAutoCapture()
+        {
+            AutoCaptureWindowIntegration.Stop();
+        }
+
+        public static void OpenScreenshotsFolder()
+        {
+            string screenshotsFolder = GetScreenshotsFolder();
+
+            if (Directory.Exists(screenshotsFolder))
+            {
+                FileHelpers.OpenFolder(screenshotsFolder);
+            }
+            else
+            {
+                FileHelpers.OpenFolder(Program.ScreenshotsParentFolder);
+            }
+        }
+
+        public static void OpenHistory()
+        {
+            HistoryIntegration.ShowHistoryWindow(Program.HistoryManager, Program.Settings.HistorySettings,
+                new HistoryWindowServices
+                {
+                    UploadFile = filePath => UploadManager.UploadFile(filePath),
+                    EditImage = filePath => AnnotateImageFromFile(filePath),
+                    PinToScreen = filePath => PinToScreen(filePath),
+                    AnalyzeImage = filePath => AnalyzeImage(filePath),
+                    ShowImage = filePath => OpenImageViewer(filePath),
+                    ShowImages = (filePaths, selectedIndex) =>
+                        ImageViewerWindowIntegration.ShowImage(filePaths, selectedIndex)
+                });
+        }
+
+        public static void OpenImageHistory()
+        {
+            HistoryIntegration.ShowImageHistoryWindow(Program.HistoryManager, Program.Settings.ImageHistorySettings,
+                new HistoryWindowServices
+                {
+                    UploadFile = filePath => UploadManager.UploadFile(filePath),
+                    EditImage = filePath => AnnotateImageFromFile(filePath),
+                    PinToScreen = filePath => PinToScreen(filePath),
+                    AnalyzeImage = filePath => AnalyzeImage(filePath),
+                    ShowImage = filePath => OpenImageViewer(filePath),
+                    ShowImages = (filePaths, selectedIndex) =>
+                        ImageViewerWindowIntegration.ShowImage(filePaths, selectedIndex)
+                });
+        }
+
+        public static void OpenDebugLog()
+        {
+            DebugLogWindowIntegration.Show(
+                DebugHelper.Logger,
+                text => UploadManager.UploadText(text),
+                Strings.MainForm_UploadDebugLogWarning);
+        }
+
+        public static void ShowScreenColorPickerDialog(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+            ColorPickerWindowIntegration.Show(
+                taskSettings.CaptureSettingsReference.SurfaceOptions.ColorPickerOptions,
+                taskSettings.ToolsSettingsReference.ScreenColorPickerOptions);
+        }
+
+        public static async void OpenScreenColorPicker(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+            ScreenColorPickerOptions options = taskSettings.ToolsSettingsReference.ScreenColorPickerOptions;
+            ScreenColorPickerResult result = await ToolsIntegration.PickScreenColorAsync(options);
+
+            if (result != null)
+            {
+                string input = result.ControlPressed ? options.FormatCtrl : options.Format;
+
+                if (!string.IsNullOrEmpty(input))
+                {
+                    Color color = Color.FromArgb(result.Color.A, result.Color.R, result.Color.G, result.Color.B);
+                    Point position = new Point(result.Position.X, result.Position.Y);
+                    string text = CodeMenuEntryPixelInfo.Parse(input, color, position);
+                    ClipboardHelpers.CopyText(text);
+
+                    PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+
+                    if (taskSettings.GeneralSettings.ShowToastNotificationAfterTaskCompleted)
+                    {
+                        ShowNotificationTip(string.Format(Strings.TaskHelpers_OpenQuickScreenColorPicker_Copied_to_clipboard___0_, text),
+                            "Modlight - " + Strings.ScreenColorPicker);
+                    }
+                }
+            }
+        }
+
+        public static void OpenMetadataWindow(string filePath = null)
+        {
+            if (!CheckExifTool())
+            {
+                return;
+            }
+
+            ToolsIntegration.ShowMetadataWindow(filePath,
+                () => PlayNotificationSoundAsync(NotificationSound.ActionCompleted));
+        }
+
+        public static bool StripMetadata(TaskSettings taskSettings = null)
+        {
+            string filePath = FileHelpers.BrowseFile();
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                return StripMetadata(filePath, taskSettings);
+            }
+
+            return false;
+        }
+
+        public static bool StripMetadata(string filePath = null, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            if (!CheckExifTool())
+            {
+                return false;
+            }
+
+            try
+            {
+                MetadataService.StripFileMetadata(filePath);
+
+                PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+                e.ShowError();
+
+                return false;
+            }
+
+            return true;
+        }
+
+        public static void OpenImageCombiner(IEnumerable<string> imageFiles = null, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            TaskSettings activeTaskSettings = taskSettings;
+            ToolsIntegration.ShowImageCombinerWindow(
+                taskSettings.ToolsSettingsReference.ImageCombinerOptions,
+                new ImageCombinerServices
+                {
+                    CreatePreviewAsync = CreateImageCombinerPreviewAsync,
+                    ProcessAsync = request => ProcessCombinedImagesAsync(request, activeTaskSettings)
+                },
+                imageFiles?.ToArray());
+        }
+
+        private static Task<byte[]> CreateImageCombinerPreviewAsync(ImageCombineRequest request)
+        {
+            return Task.Run(() =>
+            {
+                using Bitmap output = CombineImages(request);
+                if (output == null)
+                {
+                    return null;
+                }
+
+                using MemoryStream stream = new MemoryStream();
+                output.Save(stream, ImageFormat.Png);
+                return stream.ToArray();
+            });
+        }
+
+        private static async Task ProcessCombinedImagesAsync(ImageCombineRequest request, TaskSettings taskSettings)
+        {
+            Bitmap output = await Task.Run(() => CombineImages(request));
+            if (output != null)
+            {
+                UploadManager.RunImageTask(output, taskSettings);
+            }
+        }
+
+        private static Bitmap CombineImages(ImageCombineRequest request)
+        {
+            return ImageHelpers.CombineImages(
+                request.ImageFiles,
+                (Orientation)request.Options.Orientation,
+                (ShareX.HelpersLib.ImageCombinerAlignment)request.Options.Alignment,
+                request.Options.Space,
+                request.Options.WrapAfter,
+                request.Options.AutoFillBackground);
+        }
+
+        public static void OpenBackgroundRemover(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            // Without a model the tool is an empty dropdown and a button that does nothing,
+            // and that is exactly what an installation of 0.7.x arrives as. Offered before
+            // the window opens rather than inside it, so the answer is there when it does.
+            //
+            // ANY .onnx counts, not only ours: somebody who put their own model in that
+            // folder has already solved this, and must not be asked to fetch a gigabyte to
+            // be told something they know.
+            if (!HasBackgroundRemovalModel())
+            {
+                ComponentsWindowIntegration.Require(ModlightComponentCatalog.BackgroundModel,
+                    Strings.Components_FeatureBackgroundRemover);
+            }
+
+            ToolsIntegration.ShowBackgroundRemoverWindow(Program.ModelsFolder, taskSettings.ToolsSettingsReference.BackgroundRemoverOptions);
+        }
+
+        private static bool HasBackgroundRemovalModel()
+        {
+            try
+            {
+                return Directory.Exists(Program.ModelsFolder) &&
+                    Directory.EnumerateFiles(Program.ModelsFolder, "*.onnx", SearchOption.TopDirectoryOnly).Any();
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+
+                // Unreadable is not empty. Opening the tool and letting it say what it finds
+                // beats asking for a download on the strength of a failed directory listing.
+                return true;
+            }
+        }
+
+        public static void CombineImages(IEnumerable<string> imageFiles, Orientation orientation, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            Bitmap output = ImageHelpers.CombineImages(imageFiles, orientation,
+                (ShareX.HelpersLib.ImageCombinerAlignment)taskSettings.ToolsSettings.ImageCombinerOptions.Alignment,
+                taskSettings.ToolsSettings.ImageCombinerOptions.Space, taskSettings.ToolsSettings.ImageCombinerOptions.WrapAfter,
+                taskSettings.ToolsSettings.ImageCombinerOptions.AutoFillBackground);
+
+            if (output != null)
+            {
+                UploadManager.RunImageTask(output, taskSettings);
+            }
+        }
+
+        public static void OpenVideoConverter(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            if (!CheckFFmpeg(taskSettings))
+            {
+                return;
+            }
+
+            ShowVideoConverter(taskSettings);
+        }
+
+        public static void OpenVideoConverter(string filePath, TaskSettings taskSettings = null)
+        {
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+                if (!CheckFFmpeg(taskSettings))
+                {
+                    return;
+                }
+
+                ShowVideoConverter(taskSettings, filePath);
+            }
+        }
+
+        private static void ShowVideoConverter(TaskSettings taskSettings, string inputFilePath = null)
+        {
+            string ffmpegFilePath = taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath;
+            ToolsIntegration.ShowVideoConverterWindow(
+                taskSettings.ToolsSettingsReference.VideoConverterOptions,
+                (request, progress, cancellationToken) => RunVideoConversionAsync(ffmpegFilePath, request, progress, cancellationToken),
+                inputFilePath);
+        }
+
+        private static Task<VideoConversionResult> RunVideoConversionAsync(
+            string ffmpegFilePath,
+            VideoConversionRequest request,
+            IProgress<double> progress,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegFilePath)
+                {
+                    ShowError = false,
+                    TrackEncodeProgress = true
+                };
+
+                ffmpeg.EncodeProgressChanged += percentage => progress.Report(percentage);
+                using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
+                bool succeeded = ffmpeg.Run(request.Arguments);
+                bool wasCancelled = cancellationToken.IsCancellationRequested || ffmpeg.StopRequested;
+
+                if (succeeded && !wasCancelled && request.AutoOpenFolder)
+                {
+                    FileHelpers.OpenFolderWithFile(request.OutputFilePath);
+                }
+
+                string errorMessage = null;
+                if (!succeeded && !wasCancelled)
+                {
+                    errorMessage = ffmpeg.Output.ToString()
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .LastOrDefault();
+                }
+
+                return new VideoConversionResult(succeeded, wasCancelled, errorMessage);
+            }, cancellationToken);
+        }
+
+        public static void MakeActiveWindowBorderless(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            try
+            {
+                IntPtr handle = NativeMethods.GetForegroundWindow();
+
+                if (handle.ToInt32() > 0)
+                {
+                    BorderlessWindowManager.ToggleBorderlessWindow(handle, taskSettings.ToolsSettings.BorderlessWindowSettings.ExcludeTaskbarArea);
+
+                    PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+                }
+            }
+            catch (Exception e)
+            {
+                e.ShowError();
+            }
+        }
+
+        public static void MakeActiveWindowTopMost(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            try
+            {
+                IntPtr handle = NativeMethods.GetForegroundWindow();
+
+                if (handle.ToInt32() > 0)
+                {
+                    WindowInfo windowInfo = new WindowInfo(handle);
+                    windowInfo.TopMost = !windowInfo.TopMost;
+
+                    PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+                }
+            }
+            catch (Exception e)
+            {
+                e.ShowError();
+            }
+        }
+
+        private static void ShowImageEditorSelector(TaskSettings taskSettings)
+        {
+            if (taskSettings.ToolsSettingsReference.ShowImageEditorSelector)
+            {
+                bool? useLegacyImageEditor = ImageEditorSelectorWindowIntegration.Show();
+
+                if (useLegacyImageEditor.HasValue)
+                {
+                    taskSettings.ToolsSettingsReference.UseLegacyImageEditor = useLegacyImageEditor.Value;
+                    taskSettings.ToolsSettingsReference.ShowImageEditorSelector = false;
+                }
+            }
+        }
+
+        public static void OpenImageEditor(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            ShowImageEditorSelector(taskSettings);
+
+            if (taskSettings.ToolsSettingsReference.UseLegacyImageEditor)
+            {
+                using (EditorStartupForm editorStartupForm = new EditorStartupForm(taskSettings.CaptureSettingsReference.SurfaceOptions))
+                {
+                    if (editorStartupForm.ShowDialog() == DialogResult.OK)
+                    {
+                        AnnotateImageAsync(editorStartupForm.Image, editorStartupForm.ImageFilePath, taskSettings);
+                    }
+                }
+            }
+            else
+            {
+                AnnotateImageAsync(null, null, taskSettings);
+            }
+        }
+
+        public static void AnnotateImageFromFile(string filePath, TaskSettings taskSettings = null)
+        {
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+                Bitmap bmp = ImageHelpers.LoadImage(filePath);
+
+                AnnotateImageAsync(bmp, filePath, taskSettings);
+            }
+            else
+            {
+                MessageBox.Show(string.Format(Strings.TaskHelpers_FileDoesNotExist, filePath), "Modlight", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        public static void AnnotateImageAsync(Bitmap bmp, string filePath, TaskSettings taskSettings)
+        {
+            ThreadWorker worker = new ThreadWorker();
+
+            worker.DoWork += () =>
+            {
+                bmp = AnnotateImage(bmp, filePath, taskSettings);
+            };
+
+            worker.Completed += () =>
+            {
+                if (bmp != null)
+                {
+                    UploadManager.RunImageTask(bmp, taskSettings);
+                }
+            };
+
+            worker.Start(ApartmentState.STA);
+        }
+
+        public static Bitmap AnnotateImage(Bitmap bmp, string filePath, TaskSettings taskSettings, bool taskMode = false)
+        {
+            ShowImageEditorSelector(taskSettings);
+
+            if (taskSettings.ToolsSettingsReference.UseLegacyImageEditor)
+            {
+                return AnnotateImageLegacy(bmp, filePath, taskSettings, taskMode);
+            }
+
+            return AnnotateImageModern(bmp, filePath, taskSettings, taskMode);
+        }
+
+        private static Bitmap AnnotateImageLegacy(Bitmap bmp, string filePath, TaskSettings taskSettings, bool taskMode = false)
+        {
+            if (bmp != null)
+            {
+                bmp = ImageHelpers.NonIndexedBitmap(bmp);
+
+                using (bmp)
+                {
+                    RegionCaptureMode mode = taskMode ? RegionCaptureMode.TaskEditor : RegionCaptureMode.Editor;
+                    RegionCaptureOptions options = taskSettings.CaptureSettingsReference.SurfaceOptions;
+
+                    using (RegionCaptureForm form = new RegionCaptureForm(mode, options, bmp))
+                    {
+                        form.ImageFilePath = filePath;
+
+                        form.SaveImageRequested += (output, newFilePath) =>
+                        {
+                            using (output)
+                            {
+                                if (string.IsNullOrEmpty(newFilePath))
+                                {
+                                    string screenshotsFolder = GetScreenshotsFolder(taskSettings);
+                                    string fileName = GetFileName(taskSettings, taskSettings.ImageSettings.ImageFormat.GetDescription(), output);
+                                    newFilePath = Path.Combine(screenshotsFolder, fileName);
+                                }
+
+                                ImageHelpers.SaveImage(output, newFilePath);
+                            }
+
+                            return newFilePath;
+                        };
+
+                        form.SaveImageAsRequested += (output, newFilePath) =>
+                        {
+                            using (output)
+                            {
+                                if (string.IsNullOrEmpty(newFilePath))
+                                {
+                                    string screenshotsFolder = GetScreenshotsFolder(taskSettings);
+                                    string fileName = GetFileName(taskSettings, taskSettings.ImageSettings.ImageFormat.GetDescription(), output);
+                                    newFilePath = Path.Combine(screenshotsFolder, fileName);
+                                }
+
+                                newFilePath = ImageHelpers.SaveImageFileDialog(output, newFilePath);
+                            }
+
+                            return newFilePath;
+                        };
+
+                        form.CopyImageRequested += MainFormCopyImage;
+                        form.UploadImageRequested += output => MainFormUploadImage(output, taskSettings);
+                        form.PrintImageRequested += MainFormPrintImage;
+                        form.ShowDialog();
+
+                        switch (form.Result)
+                        {
+                            case RegionResult.Close: // Esc
+                            case RegionResult.AnnotateCancelTask:
+                                return null;
+                            case RegionResult.Region: // Enter
+                            case RegionResult.AnnotateRunAfterCaptureTasks:
+                                return form.GetResultImage();
+                            case RegionResult.Fullscreen: // Space or right click
+                            case RegionResult.AnnotateContinueTask:
+                                return (Bitmap)form.Canvas.Clone();
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static Bitmap AnnotateImageModern(Bitmap bmp, string filePath, TaskSettings taskSettings, bool taskMode = false,
+            bool openBackgroundPanel = false)
+        {
+            Bitmap bmpResult = null;
+
+            ImageEditorCallbacks events = new ImageEditorCallbacks
+            {
+                CopyImageRequested = (skBitmap) =>
+                {
+                    using Bitmap img = skBitmap.ToBitmap();
+                    MainFormCopyImage(img);
+                },
+                SaveImageRequested = (skBitmap, newFilePath) =>
+                {
+                    using Bitmap img = skBitmap.ToBitmap();
+
+                    if (string.IsNullOrEmpty(newFilePath))
+                    {
+                        string screenshotsFolder = GetScreenshotsFolder(taskSettings);
+                        string fileName = GetFileName(taskSettings, taskSettings.ImageSettings.ImageFormat.GetDescription(), img);
+                        newFilePath = Path.Combine(screenshotsFolder, fileName);
+                    }
+
+                    ImageHelpers.SaveImage(img, newFilePath);
+                    return newFilePath;
+                },
+                SaveImageAsRequested = (skBitmap, newFilePath) =>
+                {
+                    using Bitmap img = skBitmap.ToBitmap();
+
+                    if (string.IsNullOrEmpty(newFilePath))
+                    {
+                        string screenshotsFolder = GetScreenshotsFolder(taskSettings);
+                        string fileName = GetFileName(taskSettings, taskSettings.ImageSettings.ImageFormat.GetDescription(), img);
+                        newFilePath = Path.Combine(screenshotsFolder, fileName);
+                    }
+
+                    newFilePath = ImageHelpers.SaveImageFileDialog(img, newFilePath);
+                    return newFilePath;
+                },
+                PrintImageRequested = (skBitmap) =>
+                {
+                    Bitmap bmp = skBitmap.ToBitmap();
+                    MainFormPrintImage(bmp);
+                },
+                PinImageRequested = (skBitmap) =>
+                {
+                    Bitmap bmp = skBitmap.ToBitmap();
+                    PinToScreen(bmp, taskSettings);
+                },
+                UploadImageRequested = (skBitmap) =>
+                {
+                    Bitmap bmp = skBitmap.ToBitmap();
+                    MainFormUploadImage(bmp, taskSettings);
+                }
+            };
+
+            SKBitmap skBitmapResult = null;
+
+            if (bmp != null)
+            {
+                using SKBitmap skBitmap = GdiBitmapToSkBitmap(bmp);
+                skBitmapResult = ImageEditorIntegration.ShowEditorDialog(skBitmap, taskSettings.ToolsSettingsReference.ImageEditorOptions,
+                    events, taskMode, filePath, openBackgroundPanel);
+            }
+            else
+            {
+                skBitmapResult = ImageEditorIntegration.ShowEditorDialog(taskSettings.ToolsSettingsReference.ImageEditorOptions,
+                    events, taskMode, filePath, openBackgroundPanel);
+            }
+
+            if (skBitmapResult != null)
+            {
+                using (skBitmapResult)
+                {
+                    bmpResult = skBitmapResult.ToBitmap();
+                }
+            }
+
+            return bmpResult;
+        }
+
+        // Avoid the slow PNG re-encode path for large captures while still bypassing
+        // the WindowsForms Bitmap->SKBitmap conversion that regressed post-effects opens.
+        private static SKBitmap GdiBitmapToSkBitmap(Bitmap bitmap)
+        {
+            Bitmap sourceBitmap = bitmap;
+            bool disposeSourceBitmap = false;
+            PixelFormat pixelFormat = bitmap.PixelFormat;
+
+            if (pixelFormat != PixelFormat.Format32bppArgb && pixelFormat != PixelFormat.Format32bppPArgb)
+            {
+                sourceBitmap = new Bitmap(bitmap.Width, bitmap.Height, PixelFormat.Format32bppPArgb);
+                sourceBitmap.SetResolution(bitmap.HorizontalResolution, bitmap.VerticalResolution);
+
+                using (Graphics graphics = Graphics.FromImage(sourceBitmap))
+                {
+                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    graphics.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+                }
+
+                disposeSourceBitmap = true;
+                pixelFormat = sourceBitmap.PixelFormat;
+            }
+
+            Rectangle rect = new Rectangle(0, 0, sourceBitmap.Width, sourceBitmap.Height);
+            BitmapData bmpData = sourceBitmap.LockBits(rect, ImageLockMode.ReadOnly, pixelFormat);
+
+            try
+            {
+                SKAlphaType alphaType = pixelFormat == PixelFormat.Format32bppPArgb ? SKAlphaType.Premul : SKAlphaType.Unpremul;
+                SKBitmap skBitmap = new SKBitmap(new SKImageInfo(sourceBitmap.Width, sourceBitmap.Height, SKColorType.Bgra8888, alphaType));
+
+                IntPtr dstPtr = skBitmap.GetPixels();
+                int dstStride = skBitmap.RowBytes;
+                int srcStride = bmpData.Stride;
+                int srcStrideAbs = Math.Abs(srcStride);
+                int height = sourceBitmap.Height;
+                int rowBytes = sourceBitmap.Width * 4;
+                IntPtr srcStart = bmpData.Scan0;
+
+                if (srcStride < 0)
+                {
+                    srcStart = IntPtr.Add(srcStart, srcStride * (height - 1));
+                }
+
+                if (srcStrideAbs == dstStride)
+                {
+                    int copyLength = dstStride * height;
+                    byte[] pixels = new byte[copyLength];
+                    Marshal.Copy(srcStart, pixels, 0, copyLength);
+                    Marshal.Copy(pixels, 0, dstPtr, copyLength);
+                }
+                else
+                {
+                    byte[] row = new byte[rowBytes];
+
+                    for (int y = 0; y < height; y++)
+                    {
+                        IntPtr srcRow = IntPtr.Add(srcStart, y * srcStrideAbs);
+                        IntPtr dstRow = IntPtr.Add(dstPtr, y * dstStride);
+                        Marshal.Copy(srcRow, row, 0, rowBytes);
+                        Marshal.Copy(row, 0, dstRow, rowBytes);
+                    }
+                }
+
+                return skBitmap;
+            }
+            finally
+            {
+                sourceBitmap.UnlockBits(bmpData);
+
+                if (disposeSourceBitmap)
+                {
+                    sourceBitmap.Dispose();
+                }
+            }
+        }
+
+        public static void MainFormCopyImage(Bitmap bmp)
+        {
+            Program.MainForm.InvokeSafe(() =>
+            {
+                ClipboardHelpers.CopyImage(bmp);
+            });
+        }
+
+        public static void MainFormUploadImage(Bitmap bmp, TaskSettings taskSettings = null)
+        {
+            Program.MainForm.InvokeSafe(() =>
+            {
+                UploadManager.UploadImage(bmp, taskSettings);
+            });
+        }
+
+        public static void MainFormPrintImage(Bitmap bmp)
+        {
+            Program.MainForm.InvokeSafe(() =>
+            {
+                using (bmp)
+                {
+                    PrintImage(bmp);
+                }
+            });
+        }
+
+        public static Bitmap BeautifyImage(Bitmap bmp, TaskSettings taskSettings = null)
+        {
+            if (bmp != null)
+            {
+                if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+                try
+                {
+                    return AnnotateImageModern(bmp, null, taskSettings, taskMode: true, openBackgroundPanel: true);
+                }
+                finally
+                {
+                    bmp.Dispose();
+                }
+            }
+
+            return null;
+        }
+
+        public static void OpenImageEffects(TaskSettings taskSettings = null)
+        {
+            string filePath = ImageHelpers.OpenImageFileDialog();
+
+            OpenImageEffects(filePath, taskSettings);
+        }
+
+        public static void OpenImageEffects(string filePath, TaskSettings taskSettings = null)
+        {
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                Bitmap bmp = ImageHelpers.LoadImage(filePath);
+
+                if (bmp != null)
+                {
+                    bmp = ImageHelpers.NonIndexedBitmap(bmp);
+
+                    if (taskSettings == null) taskSettings = Program.DefaultTaskSettings;
+
+                    using (bmp)
+                    {
+                        ImageEffectsIntegration.ShowToolWindow(bmp,
+                            taskSettings.ImageSettingsReference.ImageEffectPresets,
+                            taskSettings.ImageSettings.SelectedImageEffectPreset,
+                            CreateImageEffectsCallbacks(taskSettings), filePath,
+                            selectedIndex => taskSettings.ImageSettingsReference.SelectedImageEffectPreset = selectedIndex);
+                    }
+                }
+            }
+        }
+
+        public static void OpenImageEffectsSingleton(TaskSettings taskSettings = null, string importJson = null)
+        {
+            if (taskSettings == null) taskSettings = Program.DefaultTaskSettings;
+
+            ImageEffectsIntegration.ShowPresetWindow(taskSettings.ImageSettings.ImageEffectPresets,
+                taskSettings.ImageSettings.SelectedImageEffectPreset,
+                selectedIndex => taskSettings.ImageSettings.SelectedImageEffectPreset = selectedIndex,
+                importJson, CreateImageEffectsCallbacks(taskSettings));
+        }
+
+        private static ImageEffectsCallbacks CreateImageEffectsCallbacks(TaskSettings taskSettings)
+        {
+            return new ImageEffectsCallbacks
+            {
+                LoadImageFromFile = () =>
+                {
+                    string path = ImageHelpers.OpenImageFileDialog();
+                    Bitmap image = !string.IsNullOrWhiteSpace(path) ? ImageHelpers.LoadImage(path) : null;
+                    return image != null ? new ImageEffectsSource(image, path) : null;
+                },
+                LoadImageFromClipboard = () =>
+                {
+                    Bitmap image = ClipboardHelpers.GetImage();
+                    return image != null ? new ImageEffectsSource(image) : null;
+                },
+                SaveImage = (image, path) => ImageHelpers.SaveImageFileDialog(image, path),
+                UploadImage = image => UploadManager.RunImageTask(image, taskSettings),
+                OpenImageEffectsPage = () => URLHelpers.OpenURL(Links.ImageEffects)
+            };
+        }
+
+        public static void OpenImageViewer()
+        {
+            ImageViewerWindowIntegration.ShowImage();
+        }
+
+        public static void OpenImageViewer(string filePath)
+        {
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                ImageViewerWindowIntegration.ShowImage(filePath);
+            }
+        }
+
+        public static void RunShareXAsAdmin(string arguments = null)
+        {
+            try
+            {
+                string exePath = Application.ExecutablePath;
+
+                string cmdArgs = $"/c timeout /t 1 & powershell -Command \"Start-Process '{exePath}' -Verb runAs";
+
+                if (!string.IsNullOrEmpty(arguments))
+                {
+                    cmdArgs += $" -ArgumentList '{arguments}'";
+                }
+
+                cmdArgs += "\"";
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+            }
+            catch
+            {
+            }
+        }
+
+        public static void OpenQRCode(string text = null)
+        {
+            if (text == null)
+            {
+                string clipboardText = ClipboardHelpers.GetText(true);
+                if (CheckQRCodeContent(clipboardText))
+                {
+                    text = clipboardText;
+                }
+            }
+
+            ShowQRCodeWindow(new QRCodeWindowOptions { InitialText = text });
+        }
+
+        public static void OpenQRCodeScanFromImageFile(string filePath)
+        {
+            ShowQRCodeWindow(new QRCodeWindowOptions { InitialImageFilePath = filePath });
+        }
+
+        public static void OpenQRCodeScanScreen()
+        {
+            ShowQRCodeWindow(new QRCodeWindowOptions { InitialScanMode = QRCodeScanMode.Screen });
+        }
+
+        public static void OpenQRCodeScanRegion()
+        {
+            ShowQRCodeWindow(new QRCodeWindowOptions { InitialScanMode = QRCodeScanMode.Region });
+        }
+
+        private static void ShowQRCodeWindow(QRCodeWindowOptions options)
+        {
+            ToolsIntegration.ShowQRCodeWindow(new QRCodeServices
+            {
+                GeneratePreviewAsync = GenerateQRCodePreviewAsync,
+                ScanAsync = ScanQRCodeAsync,
+                SaveAsync = SaveQRCodeAsync,
+                CopyImage = CopyQRCodeImage,
+                UploadImage = UploadQRCodeImage,
+                PlayNotificationSound = () => PlayNotificationSoundAsync(NotificationSound.ActionCompleted)
+            }, options);
+        }
+
+        private static Task<byte[]> GenerateQRCodePreviewAsync(string text, int size)
+        {
+            return Task.Run(() =>
+            {
+                using Image image = GenerateQRCode(text, size);
+                if (image == null)
+                {
+                    return null;
+                }
+
+                using MemoryStream stream = new MemoryStream();
+                image.Save(stream, ImageFormat.Png);
+                return stream.ToArray();
+            });
+        }
+
+        private static Task<string[]> ScanQRCodeAsync(QRCodeScanMode mode, string filePath)
+        {
+            using Bitmap bitmap = mode switch
+            {
+                QRCodeScanMode.Screen => new Screenshot().CaptureFullscreen(),
+                QRCodeScanMode.Region => RegionCaptureTasks.GetRegionImage(
+                    TaskSettings.GetDefaultTaskSettings().CaptureSettings.SurfaceOptions),
+                QRCodeScanMode.ImageFile when !string.IsNullOrWhiteSpace(filePath) => ImageHelpers.LoadImage(filePath),
+                _ => null
+            };
+
+            return Task.FromResult(bitmap != null ? BarcodeScan(bitmap) : null);
+        }
+
+        private static Task SaveQRCodeAsync(string text, int size, string filePath)
+        {
+            return Task.Run(() =>
+            {
+                if (filePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                {
+                    BarcodeWriterSvg writer = new BarcodeWriterSvg
+                    {
+                        Format = BarcodeFormat.QR_CODE,
+                        Options = new QrCodeEncodingOptions
+                        {
+                            Width = size,
+                            Height = size,
+                            CharacterSet = "UTF-8"
+                        }
+                    };
+                    var svgImage = writer.Write(text);
+                    File.WriteAllText(filePath, svgImage.Content, Encoding.UTF8);
+                }
+                else
+                {
+                    using Image image = GenerateQRCode(text, size);
+                    if (image != null)
+                    {
+                        ImageHelpers.SaveImage(image, filePath);
+                    }
+                }
+            });
+        }
+
+        private static void CopyQRCodeImage(string text, int size)
+        {
+            using Image image = GenerateQRCode(text, size);
+            if (image != null)
+            {
+                ClipboardHelpers.CopyImage(image);
+            }
+        }
+
+        private static void UploadQRCodeImage(string text, int size)
+        {
+            using Image image = GenerateQRCode(text, size);
+            if (image != null)
+            {
+                MainFormUploadImage(new Bitmap(image));
+            }
+        }
+
+        public static void SearchImageUsingGoogleLens(string url)
+        {
+            new GoogleLensSharingService().CreateSharer(null, null).ShareURL(url);
+        }
+
+        public static void SearchImageUsingBing(string url)
+        {
+            new BingVisualSearchSharingService().CreateSharer(null, null).ShareURL(url);
+        }
+
+        public static void AnalyzeImage(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            ShowAnalyzeImageWindow(null, taskSettings);
+        }
+
+        public static void AnalyzeImage(string filePath, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            ShowAnalyzeImageWindow(filePath, taskSettings);
+        }
+
+        private static void ShowAnalyzeImageWindow(string filePath, TaskSettings taskSettings)
+        {
+            AIOptions options = taskSettings.ToolsSettingsReference.AIOptions;
+
+            ToolsIntegration.ShowAnalyzeImageWindow(
+                filePath,
+                options,
+                () =>
+                {
+                    using Bitmap region = RegionCaptureTasks.GetRegionImage(taskSettings.CaptureSettings.SurfaceOptions);
+                    if (region == null)
+                    {
+                        return Task.FromResult<byte[]>(null);
+                    }
+
+                    using MemoryStream stream = new MemoryStream();
+                    region.Save(stream, ImageFormat.Png);
+                    return Task.FromResult(stream.ToArray());
+                },
+                () => PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings));
+        }
+
+        public static async Task OCRImage(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            using (Bitmap bmp = RegionCaptureTasks.GetRegionImage(taskSettings.CaptureSettings.SurfaceOptions))
+            {
+                await OCRImage(bmp, taskSettings);
+            }
+        }
+
+        public static async Task OCRImage(string filePath, TaskSettings taskSettings = null)
+        {
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                using (Bitmap bmp = ImageHelpers.LoadImage(filePath))
+                {
+                    await OCRImage(bmp, filePath, taskSettings);
+                }
+            }
+        }
+
+        public static async Task OCRImage(Bitmap bmp, TaskSettings taskSettings = null)
+        {
+            await OCRImage(bmp, null, taskSettings);
+        }
+
+        public static async Task OCRImage(Bitmap bmp, string filePath = null, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            OCROptions options = taskSettings.CaptureSettingsReference.OCROptions;
+
+            try
+            {
+                OCRHelper.ThrowIfNotSupported();
+
+                if (bmp != null)
+                {
+                    if (options.Silent)
+                    {
+                        await AsyncOCRImage(bmp, filePath, taskSettings);
+                    }
+                    else
+                    {
+                        if (Helpers.IsDefaultSettings(options.ServiceLinks, OCROptions.DefaultServiceLinks, (x, y) => x.Name == y.Name))
+                        {
+                            options.ServiceLinks = OCROptions.DefaultServiceLinks;
+                        }
+
+                        using MemoryStream imageStream = new MemoryStream();
+                        bmp.Save(imageStream, ImageFormat.Png);
+
+                        OCRLanguageOption[] languages = OCRHelper.AvailableLanguages;
+
+                        string result = await ToolsIntegration.ShowOCRWindowAsync(
+                            imageStream.ToArray(),
+                            languages,
+                            options,
+                            async (imageData, language, scaleFactor, singleLine) =>
+                            {
+                                using Bitmap source = ImageHelpers.ByteArrayToBitmap(imageData);
+                                return await OCRHelper.OCR(source, language, scaleFactor, singleLine);
+                            },
+                            () =>
+                            {
+                                using Bitmap region = RegionCaptureTasks.GetRegionImage(taskSettings.CaptureSettings.SurfaceOptions);
+                                if (region == null)
+                                {
+                                    return Task.FromResult<byte[]>(null);
+                                }
+
+                                using MemoryStream regionStream = new MemoryStream();
+                                region.Save(regionStream, ImageFormat.Png);
+                                return Task.FromResult(regionStream.ToArray());
+                            },
+                            openHelp: () => URLHelpers.OpenURL(Links.DocsOCR));
+
+                        if (!string.IsNullOrEmpty(result) && !string.IsNullOrEmpty(filePath))
+                        {
+                            string textFilePath = Path.ChangeExtension(filePath, "txt");
+                            File.WriteAllText(textFilePath, result, Encoding.UTF8);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                e.ShowError(false);
+            }
+        }
+
+        private static async Task AsyncOCRImage(Bitmap bmp, string filePath = null, TaskSettings taskSettings = null)
+        {
+            if (bmp != null)
+            {
+                if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+                OCROptions options = taskSettings.CaptureSettingsReference.OCROptions;
+
+                string result = await OCRHelper.OCR(bmp, options.Language, options.ScaleFactor, options.SingleLine);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    Program.MainForm.InvokeSafe(() =>
+                    {
+                        ClipboardHelpers.CopyText(result);
+                    });
+
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        string textFilePath = Path.ChangeExtension(filePath, "txt");
+                        File.WriteAllText(textFilePath, result, Encoding.UTF8);
+                    }
+                }
+                else
+                {
+                    Program.MainForm.InvokeSafe(() =>
+                    {
+                        ClipboardHelpers.Clear();
+                    });
+                }
+
+                PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+            }
+        }
+
+        public static void PinToScreen(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            PinToScreenOptions options = taskSettings.ToolsSettingsReference.PinToScreenOptions;
+            ToolsIntegration.ShowPinToScreenWindow(new PinToScreenServices
+            {
+                CaptureRegionAsync = () =>
+                {
+                    using Image image = RegionCaptureTasks.GetRegionImage(out Rectangle rect);
+                    return Task.FromResult(CreatePinToScreenSource(image, rect.Location));
+                },
+                GetClipboardImageAsync = () =>
+                {
+                    using Image image = ClipboardHelpers.TryGetImage();
+                    return Task.FromResult(CreatePinToScreenSource(image));
+                },
+                SelectImageFileAsync = () =>
+                {
+                    using Image image = ImageHelpers.LoadImageWithFileDialog();
+                    return Task.FromResult(CreatePinToScreenSource(image));
+                },
+                CopyImage = CopyPinnedImage,
+                ImagePinned = () => PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings)
+            }, options);
+        }
+
+        public static void PinToScreen(Image image, TaskSettings taskSettings = null)
+        {
+            PinToScreen(image, null, taskSettings);
+        }
+
+        public static void PinToScreen(Image image, Point? location, TaskSettings taskSettings = null)
+        {
+            if (image != null)
+            {
+                if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+                PinToScreenOptions options = taskSettings.ToolsSettingsReference.PinToScreenOptions;
+                PinToScreenSource source;
+                using (image)
+                {
+                    source = CreatePinToScreenSource(image, location);
+                }
+
+                if (source == null)
+                {
+                    return;
+                }
+
+                ToolsIntegration.PinToScreen(source.ImageData, options, CopyPinnedImage, source.Location);
+
+                PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+            }
+        }
+
+        public static void PinToScreen(string filePath, TaskSettings taskSettings = null)
+        {
+            Image image = ImageHelpers.LoadImage(filePath);
+
+            PinToScreen(image, taskSettings);
+        }
+
+        public static void PinToScreenFromScreen(TaskSettings taskSettings = null)
+        {
+            Image image = RegionCaptureTasks.GetRegionImage(out Rectangle rect);
+
+            PinToScreen(image, rect.Location, taskSettings);
+        }
+
+        public static void PinToScreenFromClipboard(TaskSettings taskSettings = null)
+        {
+            Image image = ClipboardHelpers.TryGetImage();
+
+            if (image != null)
+            {
+                PinToScreen(image, taskSettings);
+            }
+            else
+            {
+                MessageBox.Show(Strings.ClipboardDoesNotContainAnImage, "Modlight - " + Strings.PinToScreen, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        public static void PinToScreenFromFile(TaskSettings taskSettings = null)
+        {
+            Image image = ImageHelpers.LoadImageWithFileDialog();
+
+            if (image != null)
+            {
+                PinToScreen(image, taskSettings);
+            }
+        }
+
+        public static void PinToScreenCloseAll(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            ToolsIntegration.CloseAllPinnedImages();
+
+            PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+        }
+
+        private static PinToScreenSource CreatePinToScreenSource(Image image, Point? location = null)
+        {
+            if (image == null)
+            {
+                return null;
+            }
+
+            using MemoryStream stream = new MemoryStream();
+            image.Save(stream, ImageFormat.Png);
+            return new PinToScreenSource(stream.ToArray(), location);
+        }
+
+        private static void CopyPinnedImage(byte[] imageData)
+        {
+            using Bitmap image = ImageHelpers.ByteArrayToBitmap(imageData);
+            ClipboardHelpers.CopyImage(image);
+        }
+
+        public static EDataType FindDataType(string filePath, TaskSettings taskSettings)
+        {
+            if (FileHelpers.CheckExtension(filePath, taskSettings.AdvancedSettings.ImageExtensions))
+            {
+                return EDataType.Image;
+            }
+
+            if (FileHelpers.CheckExtension(filePath, taskSettings.AdvancedSettings.TextExtensions))
+            {
+                return EDataType.Text;
+            }
+
+            return EDataType.File;
+        }
+
+        public static bool ToggleHotkeys(TaskSettings taskSettings = null)
+        {
+            bool disableHotkeys = !Program.Settings.DisableHotkeys;
+            ToggleHotkeys(disableHotkeys, taskSettings);
+            return disableHotkeys;
+        }
+
+        public static void ToggleHotkeys(bool disableHotkeys, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            Program.Settings.DisableHotkeys = disableHotkeys;
+            Program.HotkeyManager.ToggleHotkeys(disableHotkeys);
+            MainWindowIntegration.RefreshMenus();
+
+            PlayNotificationSoundAsync(NotificationSound.ActionCompleted, taskSettings);
+
+            if (taskSettings.GeneralSettings.ShowToastNotificationAfterTaskCompleted)
+            {
+                ShowNotificationTip(disableHotkeys ? Strings.TaskHelpers_ToggleHotkeys_Hotkeys_disabled_ : Strings.TaskHelpers_ToggleHotkeys_Hotkeys_enabled_);
+            }
+        }
+
+        public static bool CheckFFmpeg(TaskSettings taskSettings)
+        {
+            if (!Environment.Is64BitOperatingSystem && !taskSettings.CaptureSettings.FFmpegOptions.OverrideCLIPath)
+            {
+                MessageBox.Show(Strings.FFmpegOnlySupports64BitOperatingSystems,
+                    "Modlight - " + Strings.FFmpegIsMissing, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                return false;
+            }
+
+            string ffmpegPath = taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath;
+
+            if (!File.Exists(ffmpegPath))
+            {
+                // This used to be a path and an OK button, which is where screen recording
+                // ended for anybody who had not read the documentation. Now it offers the
+                // one thing that fixes it, and carries straight on when that works - so a
+                // hotkey that found ffmpeg missing still records, instead of having to be
+                // pressed a second time.
+                if (!ComponentsWindowIntegration.Require(ModlightComponentCatalog.FFmpeg,
+                    Strings.Components_FeatureRecording))
+                {
+                    return false;
+                }
+
+                // Re-read rather than reuse: FFmpegPath is computed on every call, so an
+                // install that has just happened changes the answer with nothing else told.
+                ffmpegPath = taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath;
+
+                if (!File.Exists(ffmpegPath))
+                {
+                    MessageBox.Show(Strings.FFmpegDoesNotExistAtTheFollowingPath + "\r\n" + ffmpegPath,
+                        "Modlight - " + Strings.FFmpegIsMissing, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool CheckExifTool()
+        {
+            string exifToolPath = MetadataService.ExifToolPath;
+
+            if (!File.Exists(exifToolPath))
+            {
+                if (!ComponentsWindowIntegration.Require(ModlightComponentCatalog.ExifTool,
+                    Strings.Components_FeatureMetadata))
+                {
+                    return false;
+                }
+
+                exifToolPath = MetadataService.ExifToolPath;
+
+                if (!File.Exists(exifToolPath))
+                {
+                    MessageBox.Show(string.Format(Strings.TaskHelpers_ExifToolDoesNotExist, exifToolPath),
+                        Strings.TaskHelpers_ExifToolMissingTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static void PlayNotificationSoundAsync(NotificationSound notificationSound, TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            switch (notificationSound)
+            {
+                case NotificationSound.Capture:
+                    if (taskSettings.GeneralSettings.PlaySoundAfterCapture)
+                    {
+                        if (taskSettings.GeneralSettings.UseCustomCaptureSound && !string.IsNullOrEmpty(taskSettings.GeneralSettings.CustomCaptureSoundPath))
+                        {
+                            Helpers.PlaySoundAsync(taskSettings.GeneralSettings.CustomCaptureSoundPath);
+                        }
+                        else
+                        {
+                            Helpers.PlaySoundSync(Resources.CaptureSound);
+                        }
+                    }
+                    break;
+                case NotificationSound.TaskCompleted:
+                    if (taskSettings.GeneralSettings.PlaySoundAfterUpload)
+                    {
+                        if (taskSettings.GeneralSettings.UseCustomTaskCompletedSound && !string.IsNullOrEmpty(taskSettings.GeneralSettings.CustomTaskCompletedSoundPath))
+                        {
+                            Helpers.PlaySoundAsync(taskSettings.GeneralSettings.CustomTaskCompletedSoundPath);
+                        }
+                        else
+                        {
+                            Helpers.PlaySoundSync(Resources.TaskCompletedSound);
+                        }
+                    }
+                    break;
+                case NotificationSound.ActionCompleted:
+                    if (taskSettings.GeneralSettings.PlaySoundAfterAction)
+                    {
+                        if (taskSettings.GeneralSettings.UseCustomActionCompletedSound && !string.IsNullOrEmpty(taskSettings.GeneralSettings.CustomActionCompletedSoundPath))
+                        {
+                            Helpers.PlaySoundAsync(taskSettings.GeneralSettings.CustomActionCompletedSoundPath);
+                        }
+                        else
+                        {
+                            Helpers.PlaySoundSync(Resources.ActionCompletedSound);
+                        }
+                    }
+                    break;
+                case NotificationSound.Error:
+                    if (taskSettings.GeneralSettings.PlaySoundAfterUpload)
+                    {
+                        if (taskSettings.GeneralSettings.UseCustomErrorSound && !string.IsNullOrEmpty(taskSettings.GeneralSettings.CustomErrorSoundPath))
+                        {
+                            Helpers.PlaySoundAsync(taskSettings.GeneralSettings.CustomErrorSoundPath);
+                        }
+                        else
+                        {
+                            Helpers.PlaySoundSync(Resources.ErrorSound);
+                        }
+                    }
+                    break;
+            }
+        }
+
+        public static string FindMenuLucideIcon(HotkeyType hotkeyType)
+        {
+            return hotkeyType switch
+            {
+                HotkeyType.None => LucideIcons.circle_dashed,
+
+                // Upload
+                HotkeyType.FileUpload => LucideIcons.file_up,
+                HotkeyType.FolderUpload => LucideIcons.folder_up,
+                HotkeyType.ClipboardUpload => LucideIcons.clipboard,
+                HotkeyType.ClipboardUploadWithContentViewer => LucideIcons.clipboard_list,
+                HotkeyType.UploadText => LucideIcons.file_text,
+                HotkeyType.UploadURL => LucideIcons.link,
+                HotkeyType.DragDropUpload => LucideIcons.mouse_pointer_2,
+                HotkeyType.ShortenURL => LucideIcons.link_2,
+                HotkeyType.StopUploads => LucideIcons.circle_stop,
+
+                // Screen capture
+                HotkeyType.PrintScreen => LucideIcons.monitor,
+                HotkeyType.ActiveWindow => LucideIcons.app_window,
+                HotkeyType.CustomWindow => LucideIcons.scan,
+                HotkeyType.ActiveMonitor => LucideIcons.monitor,
+                HotkeyType.RectangleRegion => LucideIcons.scan,
+                HotkeyType.RectangleLight => LucideIcons.square,
+                HotkeyType.RectangleTransparent => LucideIcons.square_dashed,
+                HotkeyType.CustomRegion => LucideIcons.scan_line,
+                HotkeyType.LastRegion => LucideIcons.layers,
+                HotkeyType.ScrollingCapture => LucideIcons.scroll_text,
+                HotkeyType.AutoCapture => LucideIcons.clock,
+                HotkeyType.StartAutoCapture => LucideIcons.circle_play,
+                HotkeyType.StopAutoCapture => LucideIcons.timer_off,
+
+                // Screen record
+                HotkeyType.ScreenRecorder => LucideIcons.video,
+                HotkeyType.ScreenRecorderActiveWindow => LucideIcons.app_window,
+                HotkeyType.ScreenRecorderCustomRegion => LucideIcons.crop,
+                HotkeyType.StartScreenRecorder => LucideIcons.circle_play,
+                HotkeyType.ScreenRecorderGIF => LucideIcons.film,
+                HotkeyType.ScreenRecorderGIFActiveWindow => LucideIcons.film,
+                HotkeyType.ScreenRecorderGIFCustomRegion => LucideIcons.crop,
+                HotkeyType.StartScreenRecorderGIF => LucideIcons.circle_play,
+                HotkeyType.StopScreenRecording => LucideIcons.square_stop,
+                HotkeyType.PauseScreenRecording => LucideIcons.circle_pause,
+                HotkeyType.AbortScreenRecording => LucideIcons.circle_x,
+
+                // Tools
+                HotkeyType.ColorPicker => LucideIcons.palette,
+                HotkeyType.ScreenColorPicker => LucideIcons.pipette,
+                HotkeyType.PinToScreen => LucideIcons.pin,
+                HotkeyType.PinToScreenFromScreen => LucideIcons.picture_in_picture,
+                HotkeyType.PinToScreenFromClipboard => LucideIcons.clipboard,
+                HotkeyType.PinToScreenFromFile => LucideIcons.file_image,
+                HotkeyType.PinToScreenCloseAll => LucideIcons.pin_off,
+                HotkeyType.ImageEditor => LucideIcons.image,
+                HotkeyType.ImageEffects => LucideIcons.wand_sparkles,
+                HotkeyType.ImageViewer => LucideIcons.eye,
+                HotkeyType.BackgroundRemover => LucideIcons.eraser,
+                HotkeyType.ImageCombiner => LucideIcons.combine,
+                HotkeyType.VideoConverter => LucideIcons.file_video,
+                HotkeyType.AnalyzeImage => LucideIcons.bot,
+                HotkeyType.OCR => LucideIcons.scan_text,
+                HotkeyType.QRCode => LucideIcons.qr_code,
+                HotkeyType.QRCodeDecodeFromScreen => LucideIcons.scan_eye,
+                HotkeyType.QRCodeScanRegion => LucideIcons.scan_line,
+                HotkeyType.Metadata => LucideIcons.tags,
+                HotkeyType.StripMetadata => LucideIcons.file_x,
+                HotkeyType.IndexFolder => LucideIcons.folder_tree,
+                HotkeyType.ActiveWindowBorderless => LucideIcons.maximize,
+                HotkeyType.ActiveWindowTopMost => LucideIcons.panel_top,
+
+                // Other
+                HotkeyType.DisableHotkeys => LucideIcons.keyboard_off,
+                HotkeyType.OpenMainWindow => LucideIcons.panel_top_open,
+                HotkeyType.OpenScreenshotsFolder => LucideIcons.folder_open,
+                HotkeyType.OpenHistory => LucideIcons.history,
+                HotkeyType.OpenImageHistory => LucideIcons.images,
+                HotkeyType.ToggleTrayMenu => LucideIcons.menu,
+                HotkeyType.ExitShareX => LucideIcons.log_out,
+                _ => LucideIcons.circle
+            };
+        }
+
+        public static Screenshot GetScreenshot(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            Screenshot screenshot = new Screenshot()
+            {
+                CaptureCursor = taskSettings.CaptureSettings.ShowCursor,
+                CaptureClientArea = taskSettings.CaptureSettings.CaptureClientArea,
+                RemoveOutsideScreenArea = true,
+                CaptureShadow = taskSettings.CaptureSettings.CaptureShadow,
+                ShadowOffset = taskSettings.CaptureSettings.CaptureShadowOffset,
+                AutoHideTaskbar = taskSettings.CaptureSettings.CaptureAutoHideTaskbar,
+                HDRScreenshotColorCorrection = taskSettings.CaptureSettings.HDRScreenshotColorCorrection
+            };
+
+            return screenshot;
+        }
+
+        public static void ImportImageEffect(string filePath)
+        {
+            string configJson = null;
+
+            try
+            {
+                configJson = ImageEffectPackager.ExtractPackage(filePath, Program.ImageEffectsFolder);
+            }
+            catch (Exception ex)
+            {
+                ex.ShowError(false);
+            }
+
+            if (!string.IsNullOrEmpty(configJson))
+            {
+                OpenImageEffectsSingleton(Program.DefaultTaskSettings, configJson);
+
+                if (!Program.DefaultTaskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.AddImageEffects) &&
+                    MessageBox.Show(Strings.WouldYouLikeToEnableImageEffects,
+                    "Modlight", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == MessageBoxResult.Yes)
+                {
+                    Program.DefaultTaskSettings.AfterCaptureJob = Program.DefaultTaskSettings.AfterCaptureJob.Add(AfterCaptureTasks.AddImageEffects);
+                    MainWindowIntegration.RefreshMenus();
+                }
+            }
+        }
+
+        public static async Task DownloadAppVeyorBuild()
+        {
+            AppVeyorUpdateChecker updateChecker = new AppVeyorUpdateChecker()
+            {
+                IsDev = true,
+                IsPortable = Program.Portable,
+                Branch = "develop"
+            };
+
+            await updateChecker.CheckUpdateAsync();
+
+            await UpdateMessageWindow.StartAsync(updateChecker);
+        }
+
+        public static Image GenerateQRCode(string text, int size)
+        {
+            if (CheckQRCodeContent(text))
+            {
+                try
+                {
+                    BarcodeWriter writer = new BarcodeWriter()
+                    {
+                        Format = BarcodeFormat.QR_CODE,
+                        Options = new QrCodeEncodingOptions
+                        {
+                            Width = size,
+                            Height = size,
+                            CharacterSet = "UTF-8",
+                            PureBarcode = true,
+                            NoPadding = false,
+                            Margin = 1
+                        },
+                        Renderer = new BitmapRenderer()
+                    };
+
+                    return writer.Write(text);
+                }
+                catch (Exception e)
+                {
+                    e.ShowError();
+                }
+            }
+
+            return null;
+        }
+
+        public static string[] BarcodeScan(Bitmap bmp, bool scanQRCodeOnly = false)
+        {
+            try
+            {
+                BarcodeReader barcodeReader = new BarcodeReader()
+                {
+                    AutoRotate = true,
+                    Options = new DecodingOptions
+                    {
+                        TryHarder = true,
+                        TryInverted = true
+                    }
+                };
+
+                if (scanQRCodeOnly)
+                {
+                    barcodeReader.Options.PossibleFormats = new List<BarcodeFormat>() { BarcodeFormat.QR_CODE };
+                }
+
+                Result[] results = barcodeReader.DecodeMultiple(bmp);
+
+                if (results != null)
+                {
+                    return results.Where(x => x != null && !string.IsNullOrEmpty(x.Text)).Select(x => x.Text).ToArray();
+                }
+            }
+            catch (Exception e)
+            {
+                e.ShowError();
+            }
+
+            return null;
+        }
+
+        public static bool CheckQRCodeContent(string content)
+        {
+            return !string.IsNullOrEmpty(content) && Encoding.UTF8.GetByteCount(content) <= 2952;
+        }
+
+        public static void ShowNotificationTip(string text, string title = "Modlight", int duration = -1)
+        {
+            if (duration < 0)
+            {
+                duration = (int)(Program.DefaultTaskSettings.GeneralSettings.ToastWindowDuration * 1000);
+            }
+
+            NotificationWindowConfig toastConfig = new NotificationWindowConfig()
+            {
+                Duration = duration,
+                FadeDuration = (int)(Program.DefaultTaskSettings.GeneralSettings.ToastWindowFadeDuration * 1000),
+                Placement = Program.DefaultTaskSettings.GeneralSettings.ToastWindowPlacement,
+                Size = Program.DefaultTaskSettings.GeneralSettings.ToastWindowSize,
+                ActionButtonSize = Program.DefaultTaskSettings.GeneralSettings.ToastWindowButtonSize,
+                ActionButtons = NotificationActionButton.CloneButtons(Program.DefaultTaskSettings.GeneralSettings.ToastWindowButtons),
+                Title = title,
+                Text = text
+            };
+
+            Program.MainForm.InvokeSafe(() =>
+            {
+                NotificationWindow.Show(toastConfig);
+            });
+        }
+
+        public static void ToggleTrayMenu()
+        {
+            MainWindowIntegration.ShowTrayMenu();
+        }
+
+        public static bool IsUploadAllowed()
+        {
+            if (SystemOptions.DisableUpload)
+            {
+                MessageBox.Show(Strings.YourSystemAdminDisabledTheUploadFeature, "Modlight", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                return false;
+            }
+
+            if (Program.Settings.DisableUpload)
+            {
+                MessageBox.Show(Strings.ThisFeatureWillNotWorkWhenDisableUploadOptionIsEnabled, "Modlight", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                return false;
+            }
+
+            return true;
+        }
+    }
+}

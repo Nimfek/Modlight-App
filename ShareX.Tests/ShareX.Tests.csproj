@@ -1,0 +1,83 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- net10.0 and NOT net10.0-windows, deliberately. The file under test writes a text
+         format and nothing else, and a target framework with no Windows in it is what
+         proves that: the moment somebody reaches for a browser type, a registry key or a
+         WinForms control inside the writer, this project stops compiling. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>ShareX.Tests</RootNamespace>
+    <AssemblyName>ShareX.Tests</AssemblyName>
+    <!-- No test framework and no packages. The whole suite is assertions over a pure
+         function, so a runner would be a dependency to install, restore and update in
+         exchange for nothing this cannot already do: run it, read the exit code. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Linked, not referenced. These types live in assemblies that carry WinForms,
+         Avalonia, Skia and a screen recorder with them; compiling the source files into the
+         test assembly costs nothing and keeps the tests honest about what the code actually
+         needs, which is System and no more.
+
+         For the update files that is not just tidiness - it is the design. The manifest
+         reader, the version comparison, the fetch and the checksum gate were deliberately
+         written free of HelpersLib, WinForms and Avalonia so that the real shipping code,
+         not a copy of it, can be pointed at a stub server on 127.0.0.1 and run here. If
+         somebody later reaches for a window, a registry key or a DebugHelper inside one of
+         them, this project stops compiling and says so. -->
+    <Compile Include="..\ShareX\Presentation\Download\NetscapeCookieFile.cs"
+             Link="NetscapeCookieFile.cs" />
+    <Compile Include="..\ShareX.HelpersLib\UpdateChecker\ModlightRelease.cs"
+             Link="ModlightRelease.cs" />
+    <Compile Include="..\ShareX.HelpersLib\UpdateChecker\ModlightReleaseClient.cs"
+             Link="ModlightReleaseClient.cs" />
+    <Compile Include="..\ShareX.HelpersLib\UpdateChecker\ModlightUpdateFile.cs"
+             Link="ModlightUpdateFile.cs" />
+    <!-- The yt-dlp update channel: reading a GitHub release, ordering dated versions, and
+         the rule that two published digests have to agree. Written free of HelpersLib for
+         the same reason as the three above, and this one has the sharper motive: it decides
+         which executable gets fetched and run, so the refusals - a foreign host, a digest
+         conflict, no digest at all, an older build dressed as an upgrade - have to be
+         demonstrable rather than asserted in a comment. -->
+    <Compile Include="..\ShareX.HelpersLib\UpdateChecker\ModlightToolUpdate.cs"
+             Link="ModlightToolUpdate.cs" />
+    <!-- Which side wins a settings conflict. Free of HTTP, of JSON and of the config
+         objects on purpose, so the decision can be exercised here - and so that linking
+         it keeps it that way. -->
+    <Compile Include="..\ShareX\Modlight\ModlightSettingsPlan.cs"
+             Link="ModlightSettingsPlan.cs" />
+    <!-- How My space pages the library, the order it fetches previews in, and the band
+         around the viewport that decides that order. Linked for the reason above: all
+         three were written free of Avalonia, of HTTP and of the settings file so the real
+         code can be measured here, and linking them is what keeps them that way. -->
+    <Compile Include="..\ShareX\Presentation\MySpace\LibraryPager.cs"
+             Link="LibraryPager.cs" />
+    <Compile Include="..\ShareX\Presentation\MySpace\ThumbnailQueue.cs"
+             Link="ThumbnailQueue.cs" />
+    <Compile Include="..\ShareX\Presentation\MySpace\VisibleBand.cs"
+             Link="VisibleBand.cs" />
+    <!-- What one moving tile is decoded to and how much of its clip it keeps. Linked for
+         the same reason, and with a sharper one behind it: these numbers were already
+         wrong once, when the server swapped eight sampled frames for a thirty-frame clip
+         and quadrupled the artefact overnight. A memory ceiling argued for only in a
+         comment goes stale without saying so. -->
+    <Compile Include="..\ShareX\Presentation\MySpace\MotionFrameBudget.cs"
+             Link="MotionFrameBudget.cs" />
+    <!-- What the Download tab asks yt-dlp for. Linked for the reason above and for a
+         sharper one: this is a string that is handed to another program, so nothing in
+         the app can tell you it is wrong. A typo in a format selector does not throw -
+         it silently picks a different stream, which is exactly the shape of the bug
+         these tests were written after. -->
+    <Compile Include="..\ShareX\Presentation\Download\DownloadFormat.cs"
+             Link="DownloadFormat.cs" />
+    <!-- Which class of failure yt-dlp just reported. Split out of YtDlpError and kept free
+         of the resource strings for exactly this: the risk in adding an eighth class to a
+         reader that had seven is not that the new one misses, it is that it steals a
+         message from a class that was already right - and that can only be shown by running
+         the real decision over real yt-dlp lines. -->
+    <Compile Include="..\ShareX\Presentation\Download\YtDlpErrorKind.cs"
+             Link="YtDlpErrorKind.cs" />
+  </ItemGroup>
+</Project>

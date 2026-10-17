@@ -1,0 +1,1862 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:local="using:ShareX"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        x:Class="ShareX.MainWindow"
+        x:CompileBindings="False"
+        Title="Modlight"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Width="1040"
+        Height="720"
+        MinWidth="880"
+        MinHeight="540"
+        WindowStartupLocation="CenterScreen"
+        DragDrop.AllowDrop="True"
+        DragDrop.DragEnter="OnDragEnter"
+        DragDrop.DragLeave="OnDragLeave"
+        DragDrop.DragOver="OnDragOver"
+        DragDrop.Drop="OnDrop">
+
+    <Window.Styles>
+        <!-- Tab strip.
+             These were browser tabs: square-bottomed, notched into the content
+             below, with a 2px accent rule underneath. That shape is the most
+             dated thing in the window - it is the pattern desktop apps used in
+             2008, and it is a large part of why a repainted ShareX still read as
+             ShareX. They are pills now, the way the panel marks its current
+             section: one rounded surface, an accent icon, and no second
+             selection signal competing with the first. -->
+        <Style Selector="Button.tab">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.tab /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <!-- The strip is the one place the eye returns to all day, so the
+                 movement here has to be quick and completely uneventful.
+                 Anything slower than this reads as lag, not as polish. -->
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.tab:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <!-- The selected pill is an accent-TINTED surface, not a flat accent
+             fill: five saturated blocks across the top would shout, and a tab
+             strip is navigation, not a call to action. The colour that carries
+             the selection sits in the icon. -->
+        <Style Selector="Button.tab.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.tab TextBlock.tab-icon">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.tab TextBlock.tab-label">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.tab:pointerover TextBlock.tab-icon">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="Button.tab:pointerover TextBlock.tab-label">
+            <Setter Property="Opacity" Value="0.95"/>
+        </Style>
+        <Style Selector="Button.tab.selected TextBlock.tab-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="Opacity" Value="1"/>
+            <!-- A hair larger on arrival: small enough that nobody could describe
+                 it afterwards, big enough that the switch feels answered. -->
+            <Setter Property="RenderTransform" Value="scale(1.08)"/>
+        </Style>
+        <Style Selector="Button.tab.selected TextBlock.tab-label">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <!-- Capture tiles. Big enough to hit without aiming, quiet enough that
+             four of them do not compete: one accent element each (the icon), a
+             plain surface, and the movement carried by the hover state rather
+             than by decoration. -->
+        <Style Selector="Button.capture-tile">
+            <Setter Property="Height" Value="86"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.capture-tile /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <!-- The border takes the accent on hover instead of the fill: a tile that
+             floods with colour under the pointer is the thing that makes an
+             interface feel loud after the tenth time you use it. -->
+        <Style Selector="Button.capture-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Button.capture-tile Border.capture-tile-badge">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.capture-tile Border.capture-tile-badge TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Button.capture-tile:pointerover Border.capture-tile-badge">
+            <Setter Property="RenderTransform" Value="scale(1.06)"/>
+        </Style>
+        <Style Selector="Button.capture-tile TextBlock.capture-tile-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.capture-tile TextBlock.capture-tile-sub">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <!-- The shortcut, set like a key. Tabular figures so a column of these
+             does not jitter, and the secondary colour so it never competes with
+             the title it belongs to. -->
+        <Style Selector="Button.capture-tile Border.capture-tile-key">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="7,3"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <Style Selector="Button.capture-tile Border.capture-tile-key TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- A statement of fact the user can act on. Warm enough to notice,
+             quiet enough that it is not an alarm - nothing here is broken, one
+             key is simply taken by something else. -->
+        <!-- One finished upload, bottom right, gone in a few seconds. Sized against
+             the link it usually carries rather than against the window: wider than
+             this and a short filename floats in the middle of nothing, narrower and
+             every URL is elided to uselessness. -->
+        <Style Selector="Border.toast">
+            <Setter Property="Width" Value="352"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
+            <Setter Property="Padding" Value="13,11"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BoxShadow" Value="0 6 22 0 #38000000"/>
+        </Style>
+        <Style Selector="Border.toast TextBlock.toast-title">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <Style Selector="Border.toast TextBlock.toast-name">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <!-- The link on a success, the reason on a failure. Two lines at most: a
+             server sentence that runs to a paragraph must not push the buttons off
+             the bottom of the notice. -->
+        <Style Selector="Border.toast TextBlock.toast-detail">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+        </Style>
+        <Style Selector="Border.toast TextBlock.toast-ok">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Continue.Border}"/>
+        </Style>
+        <Style Selector="Border.toast TextBlock.toast-bad">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Border.toast Button.toast-action">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Border.toast Button.toast-action /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Border.toast Button.toast-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style Selector="Border.notice">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.notice TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- A button that reads as a link: no surface until you point at it. -->
+        <Style Selector="Button.quiet-link">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.quiet-link /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.quiet-link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.quiet-link TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- Storage and account, at the strip's right end. -->
+        <Style Selector="Border.strip-chip">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="9,4"/>
+        </Style>
+        <Style Selector="Button.strip-button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="9,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.strip-button /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.strip-button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.strip-button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- What a tab will hold once it is built. Sized like a real card so the tab
+             does not look broken while it is still a promise. -->
+        <Style Selector="Border.plan-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="22"/>
+            <Setter Property="Width" Value="560"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.plan-badge">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+        </Style>
+        <Style Selector="TextBlock.plan-title">
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.plan-body">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.plan-note">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- One tool, one button. Fixed width so the wrap grid lines up. -->
+        <Style Selector="Button.tool-card">
+            <Setter Property="Width" Value="196"/>
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+
+        <Style Selector="Border.thumbnail-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+        <Style Selector="Border.thumbnail-card:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.thumbnail-card.selected">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.thumbnail-preview.clickable">
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.combine-drop-zone">
+            <Setter Property="Background" Value="#CC2B2B2B"/>
+        </Style>
+        <Style Selector="Border.combine-drop-zone.drag-over">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- FOLDER TILE.
+             The shelf, not a rail and not a row of chips: the owner asked for folders
+             "the way Windows Explorer does it - side by side, I go in, the files are
+             inside", and pointed at the web panel's own browser as the thing to match.
+             So this is FolderCard.tsx in Avalonia, down to the two numbers it carries.
+
+             Deliberately compact rather than thumbnail-dominant like Border.cloud-card
+             below: a folder has no preview worth a quarter of the window, and the point
+             of a shelf is to see all of it at once. A fixed width in a WrapPanel is what
+             gives the panel's 1/2/3/4 columns here - as many as fit, recomputed on every
+             resize, and identical in behaviour to the file grid underneath it. -->
+        <Style Selector="Border.folder-tile">
+            <Setter Property="Width" Value="238"/>
+            <Setter Property="Height" Value="64"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.folder-tile:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- One click marks a tile; it does not move anywhere. The mark has to be
+             legible next to a hover, so it changes the fill as well as the border. -->
+        <Style Selector="Border.folder-tile.selected">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- Files from Explorer are over this tile and would land in this folder. Same
+             two properties as selection, deliberately: the drop target IS the answer to
+             "where is this going", and a third visual language for it would be noise. -->
+        <Style Selector="Border.folder-tile.dropping">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- A file has just landed in this folder. Deliberately louder than the two
+             states above and it moves, because those are answers to "what did I
+             click" while this one has to catch an eye that was somewhere else when
+             the upload finished. It lasts about a second and a half; see
+             MySpaceViewModel.FlashDuration. -->
+        <Style Selector="Border.folder-tile.landed">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="RenderTransform" Value="scale(1.035)"/>
+        </Style>
+        <!-- The icon is its own hit target and entering the folder is what it does -
+             an explicit request from the owner, and the reason it grows very slightly
+             under the pointer: it has to look like something you can press. -->
+        <Style Selector="Border.folder-tile Border.folder-tile-icon">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.folder-tile Border.folder-tile-icon:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1.08)"/>
+        </Style>
+        <Style Selector="Border.folder-tile Border.folder-tile-icon TextBlock.folder-tile-glyph">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <!-- Public folders take the accent on the glyph and carry a globe. "Who can see
+             this" has to be readable across a whole shelf without reading a word. -->
+        <Style Selector="Border.folder-tile.public Border.folder-tile-icon TextBlock.folder-tile-glyph">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.folder-tile.selected Border.folder-tile-icon TextBlock.folder-tile-glyph">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.folder-tile Border.folder-tile-badge">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="0,0,-3,-3"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.folder-tile Border.folder-tile-badge TextBlock">
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="Border.folder-tile TextBlock.folder-tile-name">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <Style Selector="Border.folder-tile.selected TextBlock.folder-tile-name">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.folder-tile TextBlock.folder-tile-meta">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <!-- The tile's send button. The owner named this and drag-and-drop as the two
+             ways files get uploaded, with the Upload tab demoted to a report - so it is
+             present on every tile at rest, faded rather than hidden. A control that only
+             appears on hover is a control nobody knows is there, and this one is supposed
+             to be the main way files go up. -->
+        <Style Selector="Border.folder-tile Button.folder-tile-send">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Opacity" Value="0.4"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.folder-tile:pointerover Button.folder-tile-send">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Border.folder-tile Button.folder-tile-send /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Border.folder-tile Button.folder-tile-send:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Border.folder-tile Button.folder-tile-send TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- BREADCRUMB. One segment per level, the last one being where you are.
+             Clicking a segment goes there; the current one is a label, not a link,
+             because a control that does nothing is worse than no control. -->
+        <Style Selector="Button.crumb">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.crumb /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.crumb:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.crumb TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="Button.crumb.current TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="TextBlock.crumb-separator">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- The side list of every folder, off by default and reachable with Ctrl+B.
+             Allowed as an extra, never as the only way to a folder - the shelf is the
+             navigation, and this is for the person who wants the whole tree at once. -->
+        <!-- The library panel, sliding.
+             At rest it sits one full width off to the left, inside a host that clips
+             it, so "closed" is a position rather than an absence. Opening moves it
+             back to zero; closing moves it away again and the column collapses once
+             the movement is over.
+
+             160ms and CubicEaseOut: the design system's window for a state change, and
+             the curve that leaves quickly and arrives gently, which is what makes a
+             panel read as having been pushed rather than teleported. The transition is
+             on RenderTransform, which the compositor applies after layout - the file
+             grid next door is not measured again for any frame of this. -->
+        <Style Selector="Border.library-panel">
+            <Setter Property="RenderTransform" Value="translateX(-236px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.library-panel.open">
+            <Setter Property="RenderTransform" Value="none"/>
+        </Style>
+
+        <Style Selector="Button.folder-row">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.folder-row /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.folder-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.folder-row.current /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.folder-row TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="Button.folder-row:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.folder-row.current TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.folder-row.current TextBlock.folder-row-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- Files are hovering over this row and would land in it. The same signal the
+             shelf tiles use, because it is the same gesture: the panel is a drop target
+             for moving files between folders, which is the second thing the owner asked
+             for by name. -->
+        <Style Selector="Button.folder-row.dropping /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.folder-row.dropping TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <!-- The heading over each group of rows in the library panel. -->
+        <Style Selector="TextBlock.panel-heading">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- A section header in the library, and the control that folds it.
+
+             The heading IS the button. A chevron sitting beside a label as its own
+             12 px target is the same gesture with a smaller hit box, and the owner
+             asked to click the header - so the whole row takes the click, and it is
+             only as wide as its own words, so that the thing clicked and the thing
+             named are visibly one object.
+
+             Two things say it is clickable before the pointer arrives: the chevron,
+             which points at what it is about to do, and the negative left margin,
+             which pulls the padded pill back far enough that the text still lines up
+             with the tiles under it. The surface appears under the pointer and the
+             layout does not move when it does.
+
+             Must be declared AFTER TextBlock.panel-heading. Avalonia resolves
+             competing setters by declaration order rather than by how specific the
+             selector is, so the hover colour below would lose to the heading's own
+             Foreground if this block came first. -->
+        <Style Selector="Button.section-header">
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Margin" Value="-6,0,0,4"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.section-header /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.section-header:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.section-header:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.section-header:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+
+        <!-- The chevron TURNS. One mark moving reads as one state changing; two
+             glyphs taking turns reads as two marks, and the eye has to name each of
+             them before it knows which way the section went. -->
+        <Style Selector="Button.section-header TextBlock.section-chevron">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.section-header.collapsed TextBlock.section-chevron">
+            <Setter Property="RenderTransform" Value="rotate(-90deg)"/>
+        </Style>
+
+        <!-- One file of the account's. Only the frame is described here: what the
+             card SAYS is CloudFileTile's, styles and all, so that a window being
+             edited by several hands cannot restyle the inside of a tile by
+             accident. These three are the ones the grid itself needs, because
+             they are about hover and selection - which this Border handles. -->
+        <Style Selector="Border.cloud-card">
+            <Setter Property="Width" Value="180"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- The border takes the accent, not the fill. A tile that floods with
+             colour under the pointer is what makes a grid feel loud after the
+             tenth time you scroll it. -->
+        <Style Selector="Border.cloud-card:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <!-- Selection has to be distinguishable from hover on a grid where the pointer is
+             always over something, so it moves two properties at once: the border takes
+             the accent AND the surface lifts. Hover only ever moves the border. The
+             tile's own picture area follows through its `selected` class. -->
+        <Style Selector="Border.cloud-card.selected">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+
+        <Style Selector="Border.hotkey-panel">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Maximised, Windows pushes a window frame past every screen edge and expects
+         that frame to be invisible. Ours is not: the client area now reaches the very
+         top, so without this margin the top rows of the title bar - and the close
+         button with them - sit under the edge of the screen. It is zero in every
+         other state. -->
+    <Grid RowDefinitions="Auto,Auto,*"
+          Margin="{Binding $parent[Window].OffScreenMargin}"
+          Background="{DynamicResource ShareX.Brush.Background.Main}">
+
+        <!-- The title bar. Same surface as the tab strip below it and no rule between
+             them, so the two rows read as one band instead of as a system title bar
+             with an application underneath - which is the whole reason for drawing it
+             ourselves.
+
+             ElementRole is what keeps a hand-drawn bar behaving like a real one: the
+             bar is a TitleBar, and every control on it is User, so a click on a button
+             is a click on a button and not the start of a window drag. -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource ShareX.Brush.Background.Toolbar}">
+            <Grid x:Name="TitleBar"
+                  Height="34"
+                  Background="Transparent"
+                  ColumnDefinitions="Auto,*,Auto"
+                  chrome:WindowDecorationProperties.ElementRole="TitleBar"
+                  DoubleTapped="OnTitleBarDoubleTapped"
+                  PointerPressed="OnTitleBarPointerPressed">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="9"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            chrome:WindowDecorationProperties.ElementRole="User">
+                    <!-- Ten clicks. Nothing here says so. -->
+                    <Image x:Name="TitleBarLogo"
+                           Width="17"
+                           Height="17"
+                           Stretch="Uniform"
+                           PointerPressed="OnTitleBarLogoPressed"/>
+                    <TextBlock x:Name="TitleBarText"
+                               FontSize="12"
+                               FontWeight="Normal"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1"
+                               Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Top"
+                            chrome:WindowDecorationProperties.ElementRole="User">
+                    <Button Classes="caption"
+                            ToolTip.Tip="{x:Static res:Strings.MainWindow_Minimize}"
+                            Click="OnMinimizeClick">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.minus}"
+                                   FontSize="15"
+                                   HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Classes="caption"
+                            ToolTip.Tip="{Binding MaximizeTooltip}"
+                            Click="OnMaximizeClick">
+                        <Panel>
+                            <TextBlock Classes="icon"
+                                       IsVisible="{Binding !IsMaximized}"
+                                       Text="{x:Static theming:LucideIcons.square}"
+                                       FontSize="13"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Classes="icon"
+                                       IsVisible="{Binding IsMaximized}"
+                                       Text="{x:Static theming:LucideIcons.copy}"
+                                       FontSize="13"
+                                       HorizontalAlignment="Center"/>
+                        </Panel>
+                    </Button>
+                    <Button Classes="caption close"
+                            ToolTip.Tip="{x:Static res:Strings.MainWindow_Close}"
+                            Click="OnCloseClick">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.x}"
+                                   FontSize="15"
+                                   HorizontalAlignment="Center"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="10,6,10,0">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsMySpaceSelected}"
+                            Tag="{x:Static local:MainWindowTab.MySpace}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.cloud}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabMySpace}"/>
+                            </StackPanel>
+                    </Button>
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsUploadSelected}"
+                            IsVisible="{Binding UploadsEnabled}"
+                            Tag="{x:Static local:MainWindowTab.Upload}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.upload}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabUpload}"/>
+                            </StackPanel>
+                    </Button>
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsDownloadSelected}"
+                            Tag="{x:Static local:MainWindowTab.Download}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.download}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabDownload}"/>
+                            </StackPanel>
+                    </Button>
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsCreateSelected}"
+                            Tag="{x:Static local:MainWindowTab.Create}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.sparkles}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabCreate}"/>
+                            </StackPanel>
+                    </Button>
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsToolsSelected}"
+                            Tag="{x:Static local:MainWindowTab.Tools}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.wrench}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabTools}"/>
+                            </StackPanel>
+                    </Button>
+                    <!-- Only for an account the server says administers it. The visibility
+                         is a courtesy, not a lock: every request behind this tab is checked
+                         again at the far end. See MainWindow.Admin.cs. -->
+                    <Button Classes="tab"
+                            Classes.selected="{Binding IsAdminSelected}"
+                            IsVisible="{Binding IsAdminVisible}"
+                            Tag="{x:Static local:MainWindowTab.Admin}"
+                            Click="OnTabClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon tab-icon" Text="{x:Static theming:LucideIcons.server}"/>
+                                <TextBlock Classes="tab-label" Text="{x:Static res:Strings.MainWindow_TabAdmin}"/>
+                            </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Margin="0,0,0,6"
+                            VerticalAlignment="Center">
+                    <!-- Hidden, not zeroed, while there is no account to ask: "0 B of 0 B"
+                         would read as an empty library rather than an absent answer. -->
+                    <Border Classes="strip-chip"
+                            IsVisible="{Binding Account.HasStorage}"
+                            ToolTip.Tip="{Binding Account.StorageTooltip}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.hard_drive}"
+                                       FontSize="15"
+                                       IsVisible="{Binding Account.HasStorageReading}"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                       FontSize="15"
+                                       IsVisible="{Binding Account.HasStorageProblem}"
+                                       Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                            <!-- The bar carries the fixed width, not the column: an account
+                                 with no limit has no bar, and a fixed column would leave the
+                                 chip padded out with empty space beside its own text. -->
+                            <StackPanel Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Account.StorageText}"
+                                           FontSize="11"
+                                           FontWeight="Normal"
+                                           MaxWidth="150"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxLines="1"/>
+                                <!-- MinWidth has to be said out loud: the Fluent theme gives
+                                     ProgressBar a MinWidth of 200, which wins over Width during
+                                     measure and would push the whole strip off the window. -->
+                                <ProgressBar Height="3"
+                                             Width="112"
+                                             MinWidth="0"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             HorizontalAlignment="Left"
+                                             Value="{Binding Account.StoragePercent}"
+                                             IsVisible="{Binding Account.HasStorageBar}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Classes="strip-button"
+                            ToolTip.Tip="{Binding Account.AccountTooltip}"
+                            Click="OnAccountClick">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <!-- The account's own mark: its picture, or the same two
+                                 letters the website draws, and only then the anonymous
+                                 glyph. The address of the server is not in here at all -
+                                 it moved to the tooltip, where "where" belongs, leaving
+                                 the button to answer "who". -->
+                            <Border Width="22"
+                                    Height="22"
+                                    CornerRadius="11"
+                                    ClipToBounds="True"
+                                    IsVisible="{Binding Account.IsSignedIn}"
+                                    Background="{DynamicResource ShareX.Brush.Control.Background}">
+                                <Panel>
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.circle_user}"
+                                               FontSize="16"
+                                               IsVisible="{Binding Account.Avatar.HasGlyph}"
+                                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Account.Avatar.Initials}"
+                                               IsVisible="{Binding Account.Avatar.HasInitials}"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                    <Image Source="{Binding Account.Avatar.Image}"
+                                           IsVisible="{Binding Account.Avatar.HasImage}"
+                                           Stretch="UniformToFill"/>
+                                </Panel>
+                            </Border>
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.log_in}"
+                                       FontSize="16"
+                                       IsVisible="{Binding Account.IsSignedOut}"/>
+                            <TextBlock Text="{Binding Account.AccountLabel}"
+                                       MaxWidth="150"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="1"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Classes="strip-button"
+                            Width="34"
+                            Padding="0"
+                            ToolTip.Tip="{x:Static res:Strings.MainWindow_Settings}"
+                            Click="OnSettingsClick">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.settings}"
+                                   FontSize="17"
+                                   HorizontalAlignment="Center"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Panel Grid.Row="2">
+            <!-- My space: the account's own files, and nothing else. Where you are
+                 across the top, folders as the first row of the scrolled area, the
+                 grid under them.
+
+                 There used to be a third thing pinned along the bottom: a strip of
+                 everything this session had sent. It is gone. It was a permanent
+                 second copy of the library the tab already is, kept in order to
+                 answer "did that go up?" - a question that stops being interesting
+                 about four seconds after it is asked, and is now answered by a
+                 notice in the corner that leaves on its own. -->
+            <Grid IsVisible="{Binding IsMySpaceSelected}" RowDefinitions="Auto,Auto,*">
+                <!-- Where you are, and the two things you do from here. The path is a
+                     trail of levels, so at the top of the library there is nothing to
+                     draw and the name stands on its own. -->
+                <Border Grid.Row="0"
+                        IsVisible="{Binding MySpace.HasAccount}"
+                        Padding="14,0"
+                        Height="52"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                        <!-- The hamburger. Always here, whichever way the panel is
+                             currently pointing, because a control that opens something
+                             and then moves is a control people have to hunt for. -->
+                        <Button Classes="strip-button"
+                                Width="32"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_LibraryPanel}"
+                                Click="OnFolderSidebarToggleClick">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.menu}"
+                                       FontSize="16"
+                                       HorizontalAlignment="Center"/>
+                        </Button>
+
+                        <!-- Up one level. Absent at the top, where it could only be a
+                             disabled control saying "you are already there". -->
+                        <Button Grid.Column="1"
+                                Classes="strip-button"
+                                Width="32"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding MySpace.CanGoUp}"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_Up}"
+                                Click="OnFolderUpClick">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.corner_left_up}"
+                                       FontSize="16"
+                                       HorizontalAlignment="Center"/>
+                        </Button>
+
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding MySpace.ShowFolderTitle}">
+                            <TextBlock Classes="icon"
+                                       Text="{Binding MySpace.CurrentFolderIcon}"
+                                       FontSize="17"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding MySpace.CurrentFolderName}"
+                                       FontSize="17"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Column="3"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      IsVisible="{Binding MySpace.ShowCrumbs}"
+                                      VerticalAlignment="Center">
+                            <ItemsControl ItemsSource="{Binding MySpace.Crumbs}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:FolderCrumbViewModel">
+                                        <StackPanel Orientation="Horizontal" Spacing="1">
+                                            <TextBlock Classes="icon crumb-separator"
+                                                       Text="{x:Static theming:LucideIcons.chevron_right}"
+                                                       IsVisible="{Binding ShowSeparator}"/>
+                                            <Button Classes="crumb"
+                                                    Classes.current="{Binding IsCurrent}"
+                                                    Tag="{Binding}"
+                                                    Click="OnCrumbClick">
+                                                <TextBlock Text="{Binding Name}"
+                                                           MaxWidth="220"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxLines="1"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <TextBlock Grid.Column="4"
+                                   Classes="plan-note"
+                                   Margin="6,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding MySpace.CountText}"/>
+
+                        <!-- Sending into the folder that is open. The tile buttons cover
+                             every OTHER folder; this covers the one you are standing in,
+                             which has no tile of its own here. -->
+                        <Button Grid.Column="5"
+                                Classes="strip-button"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding MySpace.CanUpload}"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_UploadHere}"
+                                Click="OnUploadHereClick">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.upload}"
+                                           FontSize="15"
+                                           Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                <TextBlock Text="{x:Static res:Strings.MySpace_UploadHere}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Emptying the trash, in the slot "upload here" vacates - which
+                             is free exactly when the trash is on screen, because there is
+                             nothing to upload into it. Deliberately NOT beside Restore:
+                             that one lives in the card menu, and the control that undoes
+                             a deletion must never be adjacent to the one that makes it
+                             permanent. What it costs is counted before it is asked, in
+                             MainWindow.MySpace.Input.cs. -->
+                        <Button Grid.Column="5"
+                                Classes="strip-button"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding MySpace.IsTrash}"
+                                IsEnabled="{Binding CanEmptyTrash}"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_EmptyTrashTip}"
+                                Click="OnEmptyTrashClick">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.trash_2}"
+                                           FontSize="15"/>
+                                <TextBlock Text="{x:Static res:Strings.MySpace_EmptyTrash}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Files stored more than once. In the trash and nowhere else,
+                             because everything it proposes lands in the trash rather than
+                             being destroyed - so the scan and its result share a screen.
+                             A column of its own rather than the slot "empty trash" sits
+                             in: the two are on screen together, and the control that
+                             empties the bin for good should not be the neighbour of one
+                             that merely moves things into it. -->
+                        <Button Grid.Column="6"
+                                Classes="strip-button"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding MySpace.IsTrash}"
+                                IsEnabled="{Binding CanScanDuplicates}"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_DuplicatesTip}"
+                                Click="OnScanDuplicatesClick">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.copy}"
+                                           FontSize="15"
+                                           Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                <TextBlock Text="{x:Static res:Strings.MySpace_Duplicates}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Grid.Column="7"
+                                Classes="strip-button"
+                                Width="32"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{x:Static res:Strings.MySpace_Refresh}"
+                                Click="OnCloudRefreshClick">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.refresh_cw}"
+                                       FontSize="16"
+                                       HorizontalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Waiting, stated in two pixels. A modal over a grid that already
+                     has files on it would hide the answer to ask about the question. -->
+                <ProgressBar Grid.Row="1"
+                             Height="2"
+                             MinHeight="0"
+                             MinWidth="0"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding MySpace.IsBusy}"/>
+
+                <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+                    <!-- The library panel. The web app's whole sidebar, in the window:
+                         everything, the six classes of file, the trash, and the folder
+                         tree underneath. It stays put while you are inside a folder,
+                         which is the owner's stated reason for wanting it - "I go into a
+                         folder and still see the other folders in the side bar".
+
+                         It SLIDES, and the Panel wrapped round it is why it can.
+
+                         Its width is still fixed and still never animated: the column
+                         beside it holds a non-virtualising WrapPanel with the whole
+                         library in it, so a DoubleTransition on Width would remeasure
+                         every one of those cards on every frame - and GridLengthTransition
+                         does not exist in Avalonia 12.1.1, so the column would jump
+                         anyway. What moves is a RenderTransform on the Border inside this
+                         fixed-size, clipping host. A translate is applied after layout, so
+                         nothing is measured again while it runs.
+
+                         The column itself appears and disappears in one step, at the far
+                         end of the movement: it is here before the panel slides in and
+                         stays until after the panel has slid out. The one remeasure the
+                         toggle costs therefore lands while the eye is following a panel at
+                         the window's edge, and never during the frames in between. The
+                         three states that dance is made of live in MainWindow.MySpace.cs. -->
+                    <Panel Grid.Column="0"
+                           Width="236"
+                           ClipToBounds="True"
+                           IsVisible="{Binding FolderSidebarPresent}">
+                    <Border Classes="library-panel"
+                            Classes.open="{Binding FolderSidebarOpen}"
+                            Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                            BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                            BorderThickness="0,0,1,0">
+                        <Grid RowDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="*,Auto" Margin="12,10,8,6">
+                                <TextBlock Classes="panel-heading"
+                                           Text="{x:Static res:Strings.MySpace_Library}"/>
+                                <Button Grid.Column="1"
+                                        Classes="strip-button"
+                                        Width="26"
+                                        Height="26"
+                                        Padding="0"
+                                        ToolTip.Tip="{x:Static res:Strings.MySpace_LibraryPanel}"
+                                        Click="OnFolderSidebarToggleClick">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.panel_left_close}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="1"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto"
+                                          Padding="8,0,8,8">
+                                <StackPanel>
+                                    <!-- All files, the six classes, then the trash. These
+                                         are FILTERS over the whole library rather than
+                                         places inside it, exactly as they are in the web
+                                         panel - picking one leaves whatever folder is
+                                         open. -->
+                                    <ItemsControl ItemsSource="{Binding MySpace.Views}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="local:LibraryNavViewModel">
+                                                <Button Classes="folder-row"
+                                                        Classes.current="{Binding IsCurrent}"
+                                                        Tag="{Binding}"
+                                                        Click="OnLibraryViewClick">
+                                                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                                                        <TextBlock Classes="icon folder-row-icon"
+                                                                   Text="{Binding Icon}"
+                                                                   FontSize="14"/>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   MaxLines="1"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Border Height="1"
+                                            Margin="2,8"
+                                            Background="{DynamicResource ShareX.Brush.Border}"/>
+
+                                    <Grid ColumnDefinitions="*,Auto" Margin="8,2,0,4">
+                                        <TextBlock Classes="panel-heading"
+                                                   Text="{x:Static res:Strings.MySpace_Folders}"/>
+                                        <!-- The only way to make a folder that does not
+                                             need an existing one to right-click first,
+                                             which is exactly the case in a library that
+                                             has none yet. -->
+                                        <Button Grid.Column="1"
+                                                Classes="strip-button"
+                                                Width="24"
+                                                Height="24"
+                                                Padding="0"
+                                                ToolTip.Tip="{x:Static res:Strings.MySpace_NewFolder}"
+                                                Click="OnNewFolderClick">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.folder_plus}"
+                                                       FontSize="13"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                    </Grid>
+
+                                    <ItemsControl ItemsSource="{Binding MySpace.Folders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="local:CloudFolderViewModel">
+                                                <Button Classes="folder-row"
+                                                        Classes.current="{Binding IsCurrent}"
+                                                        Classes.dropping="{Binding IsDropTarget}"
+                                                        Tag="{Binding}"
+                                                        ToolTip.Tip="{Binding Tooltip}"
+                                                        DragDrop.AllowDrop="True"
+                                                        DragDrop.DragEnter="OnFolderTileDragOver"
+                                                        DragDrop.DragOver="OnFolderTileDragOver"
+                                                        DragDrop.DragLeave="OnFolderTileDragLeave"
+                                                        DragDrop.Drop="OnFolderTileDrop"
+                                                        PointerPressed="OnFolderRowPointerPressed"
+                                                        PointerReleased="OnFolderRowPointerReleased"
+                                                        Click="OnFolderRowClick">
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Spacing="9"
+                                                                Margin="{Binding ContentIndent}"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Classes="icon folder-row-icon"
+                                                                   Text="{Binding Icon}"
+                                                                   FontSize="14"/>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   MaxLines="1"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                    </Panel>
+
+                <!-- Two rows, not a Panel: the pager has to sit UNDER the scroller
+                     rather than over it. Everything else in here still overlays in
+                     row 0 - the sign-in card, the spinner, the empty and error
+                     panels - because a child with no Grid.Row is in row 0, which is
+                     exactly the stacking the Panel gave them. -->
+                <Grid Grid.Column="1" RowDefinitions="*,Auto">
+                    <!-- The shelf and the grid share ONE scroller, and that is the whole
+                         point of the layout: folders scroll away as you go down into the
+                         files, exactly the way a file manager behaves. The cost is that
+                         the paging estimate has to subtract the shelf's height, which
+                         ReportVisibleCards does by measuring CloudFolderShelf. -->
+                    <ScrollViewer x:Name="CloudScroller"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  IsVisible="{Binding MySpace.HasContent}"
+                                  ScrollChanged="OnCloudScrollChanged">
+                        <StackPanel Margin="16,16,4,0"
+                                    Background="Transparent"
+                                    PointerPressed="OnCloudBackgroundPointerPressed"
+                                    PointerReleased="OnCloudBackgroundPointerReleased">
+                            <StackPanel x:Name="CloudFolderShelf" IsVisible="{Binding MySpace.HasFolders}">
+                                <Button Classes="section-header"
+                                        Classes.collapsed="{Binding FoldersSectionCollapsed}"
+                                        HorizontalAlignment="Left"
+                                        Click="OnFoldersSectionClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <TextBlock Classes="icon section-chevron"
+                                                   Text="{x:Static theming:LucideIcons.chevron_down}"/>
+                                        <TextBlock Classes="panel-heading"
+                                                   Text="{x:Static res:Strings.MySpace_Folders}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <ItemsControl IsVisible="{Binding FoldersSectionOpen}"
+                                              ItemsSource="{Binding MySpace.VisibleFolders}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="local:CloudFolderViewModel">
+                                            <Border Classes="folder-tile"
+                                                    Classes.selected="{Binding IsSelected}"
+                                                    Classes.dropping="{Binding IsDropTarget}"
+                                                    Classes.landed="{Binding JustReceived}"
+                                                    Classes.public="{Binding IsPublic}"
+                                                    Tag="{Binding}"
+                                                    DragDrop.AllowDrop="True"
+                                                    DragDrop.DragEnter="OnFolderTileDragOver"
+                                                    DragDrop.DragOver="OnFolderTileDragOver"
+                                                    DragDrop.DragLeave="OnFolderTileDragLeave"
+                                                    DragDrop.Drop="OnFolderTileDrop"
+                                                    PointerPressed="OnFolderTilePointerPressed"
+                                                    PointerReleased="OnFolderTilePointerReleased"
+                                                    DoubleTapped="OnFolderTileDoubleTapped">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{Binding Tooltip}"
+                                                               FontWeight="Normal"
+                                                               TextWrapping="WrapWithOverflow"/>
+                                                </ToolTip.Tip>
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <!-- A click here goes straight in, without
+                                                         waiting for a second one. The owner
+                                                         asked for this by name. -->
+                                                    <Border Classes="folder-tile-icon"
+                                                            Tag="{Binding}"
+                                                            PointerPressed="OnFolderIconPointerPressed"
+                                                            PointerReleased="OnFolderIconPointerReleased">
+                                                        <Panel>
+                                                            <TextBlock Classes="icon folder-tile-glyph"
+                                                                       Text="{Binding Icon}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                            <Border Classes="folder-tile-badge"
+                                                                    IsVisible="{Binding IsPublic}"
+                                                                    ToolTip.Tip="{x:Static res:Strings.MySpace_PublicFolder}">
+                                                                <TextBlock Classes="icon"
+                                                                           Text="{x:Static theming:LucideIcons.globe}"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </Panel>
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                                        <TextBlock Classes="folder-tile-name" Text="{Binding Name}"/>
+                                                        <TextBlock Classes="folder-tile-meta" Text="{Binding Meta}"/>
+                                                    </StackPanel>
+
+                                                    <Button Grid.Column="2"
+                                                            Classes="folder-tile-send"
+                                                            VerticalAlignment="Center"
+                                                            IsVisible="{Binding IsRealFolder}"
+                                                            Tag="{Binding}"
+                                                            ToolTip.Tip="{x:Static res:Strings.MySpace_UploadToFolder}"
+                                                            Click="OnFolderUploadClick">
+                                                        <TextBlock Classes="icon"
+                                                                   Text="{x:Static theming:LucideIcons.upload}"
+                                                                   HorizontalAlignment="Center"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Folders here, no files of its own. Said in one line
+                                     rather than with the empty-state card, which would
+                                     claim the folder is empty with its own subfolders on
+                                     screen right above it. -->
+                                <TextBlock Classes="plan-note"
+                                           Margin="1,2,12,10"
+                                           IsVisible="{Binding MySpace.ShowNoFilesNote}"
+                                           Text="{x:Static res:Strings.MySpace_NoFilesHere}"/>
+                            </StackPanel>
+
+                            <!-- Each header appears only when its section has something
+                                 in it. A "Files" heading over an empty stretch would be a
+                                 claim the folder cannot support, and the note above has
+                                 already said so in words. -->
+                            <Button Classes="section-header"
+                                    Classes.collapsed="{Binding FilesSectionCollapsed}"
+                                    HorizontalAlignment="Left"
+                                    Margin="-6,4,0,4"
+                                    IsVisible="{Binding MySpace.HasFiles}"
+                                    Click="OnFilesSectionClick">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Classes="icon section-chevron"
+                                               Text="{x:Static theming:LucideIcons.chevron_down}"/>
+                                    <TextBlock Classes="panel-heading"
+                                               Text="{x:Static res:Strings.MySpace_Files}"/>
+                                </StackPanel>
+                            </Button>
+
+                            <ItemsControl IsVisible="{Binding FilesSectionOpen}"
+                                          ItemsSource="{Binding MySpace.Files}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:CloudFileViewModel">
+                                        <Border Classes="cloud-card"
+                                                Classes.selected="{Binding IsSelected}"
+                                                PointerPressed="OnCloudCardPointerPressed"
+                                                PointerMoved="OnCloudCardPointerMoved"
+                                                PointerReleased="OnCloudCardPointerReleased"
+                                                PointerCaptureLost="OnCloudCardPointerCaptureLost"
+                                                PointerEntered="OnCloudCardPointerEntered"
+                                                PointerExited="OnCloudCardPointerExited"
+                                                Tapped="OnCloudCardTapped"
+                                                DoubleTapped="OnCloudCardDoubleTapped">
+                                            <!-- No ToolTip. There used to be one, carrying the
+                                                 name, the size, the date, the dimensions and
+                                                 every gate on the link - which is what the card
+                                                 itself now prints, so the tooltip was a second
+                                                 copy of the tile that covered the tile. The
+                                                 owner asked for it gone in those terms. -->
+                                            <local:CloudFileTile/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <StackPanel Margin="0,4,12,16" Spacing="8">
+                                <!-- A page that failed halfway must not throw away the
+                                     pages that worked, and must not stop silently
+                                     either: a grid that simply ends reads as "that is
+                                     all of them". -->
+                                <Border Classes="notice" IsVisible="{Binding MySpace.ShowErrorFooter}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.cloud_off}"
+                                                   FontSize="16"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding MySpace.ErrorText}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Grid.Column="2"
+                                                Classes="quiet-link"
+                                                Click="OnCloudRetryClick"
+                                                Content="{x:Static res:Strings.MySpace_Retry}"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Nobody to ask. Not an error and not an empty library: those
+                         three look identical if the screen only says "no files". -->
+                    <Border Classes="plan-card" IsVisible="{Binding MySpace.IsSignedOut}">
+                        <StackPanel Spacing="14">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                                <Border Classes="plan-badge">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.log_in}"
+                                               FontSize="20"
+                                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                    <TextBlock Classes="plan-title" Text="{x:Static res:Strings.MySpace_SignedOutTitle}"/>
+                                    <TextBlock Classes="plan-body" Text="{x:Static res:Strings.MySpace_SignedOutBody}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button HorizontalAlignment="Left" Click="OnMySpaceSignInClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.log_in}" FontSize="15"/>
+                                    <TextBlock Text="{x:Static res:Strings.MainWindow_SignIn}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel IsVisible="{Binding MySpace.ShowLoadingPanel}"
+                                Spacing="12"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.cloud}"
+                                   FontSize="22"
+                                   Opacity="0.5"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Classes="plan-note" Text="{x:Static res:Strings.MySpace_Loading}"/>
+                    </StackPanel>
+
+                    <Border Classes="plan-card" IsVisible="{Binding MySpace.ShowEmptyPanel}">
+                        <StackPanel Spacing="14">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                                <Border Classes="plan-badge">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.inbox}"
+                                               FontSize="20"
+                                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                    <TextBlock Classes="plan-title" Text="{x:Static res:Strings.MySpace_EmptyTitle}"/>
+                                    <TextBlock Classes="plan-body" Text="{x:Static res:Strings.MySpace_EmptyBody}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button HorizontalAlignment="Left" Click="OnGoToCaptureClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.sparkles}" FontSize="15"/>
+                                    <TextBlock Text="{x:Static res:Strings.MySpace_EmptyAction}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="plan-card" IsVisible="{Binding MySpace.ShowErrorPanel}">
+                        <StackPanel Spacing="14">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                                <Border Classes="plan-badge">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.cloud_off}"
+                                               FontSize="20"
+                                               Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                    <TextBlock Classes="plan-title" Text="{x:Static res:Strings.MySpace_ErrorTitle}"/>
+                                    <TextBlock Classes="plan-body" Text="{Binding MySpace.ErrorText}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button HorizontalAlignment="Left" Click="OnCloudRetryClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.refresh_cw}" FontSize="15"/>
+                                    <TextBlock Text="{x:Static res:Strings.MySpace_Retry}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- The details drawer, over the listing and nothing else. Row 0
+                         rather than both rows on purpose: it is 404px of the right-hand
+                         edge, so spanning down would cover part of the pager and leave
+                         the rest of it sticking out, which reads as a rendering fault.
+                         Last child of row 0, so it lies over the grid AND over the
+                         sign-in, empty and error panels that share the row with it.
+                         Everything about it is in Presentation/MySpace/Details. -->
+                    <local:ModlightDetailsDrawer Grid.Row="0" DataContext="{Binding Details}"/>
+
+                    <!-- Which page of the library is on screen, and the way to
+                         another one. One element here; the whole of the bar is in
+                         LibraryPagerBar.axaml, which is a file nobody else is in. -->
+                    <local:LibraryPagerBar Grid.Row="1" DataContext="{Binding MySpace.Pager}"/>
+                </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- Upload: control of what is going up, not a place to add things from.
+                 Its own control, with its own state and its own styles - the window
+                 hands it one flag and knows nothing else about it. -->
+            <local:UploadView IsVisible="{Binding IsUploadSelected}"/>
+
+            <!-- Download: yt-dlp, a queue with pause and resume, and one destination
+                 governing everything in it. Its own control, with its own styles -
+                 the window hands it one flag and knows nothing else about it. -->
+            <local:DownloadView IsVisible="{Binding IsDownloadSelected}"/>
+
+            <!-- Server: what the disk is holding, for an administrator. The same facts
+                 the website's admin page shows, read from the same aggregates, so the
+                 two screens cannot disagree about how full the machine is. Named,
+                 because the window has to tell it when it becomes the visible tab -
+                 it must not read the server on every launch to draw nothing. -->
+            <local:AdminView x:Name="AdminTab" IsVisible="{Binding IsAdminSelected}"/>
+
+            <!-- Capture: the four things people actually do, as buttons.
+                 This tab used to be a placeholder card with a dropdown under it,
+                 which reproduced the exact complaint that started this rework -
+                 the common actions hidden one level down, two of them behind a
+                 further submenu. The full capture menu is still reachable at the
+                 bottom, so nothing that was one click away is now nowhere. -->
+            <Grid IsVisible="{Binding IsCreateSelected}" RowDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Row="0" Margin="18,18,18,12" Spacing="10">
+                    <TextBlock Classes="plan-note" Text="{x:Static res:Strings.MainWindow_CaptureHint}"/>
+                    <!-- Shown when a configured shortcut could not be taken from
+                         the system. This used to be a modal at startup, which is
+                         the wrong shape for a condition the user did not cause -
+                         and it hid the window behind it. -->
+                    <Border Classes="notice" IsVisible="{Binding HasHotkeyProblem}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.keyboard_off}"
+                                       FontSize="16"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding HotkeyProblemText}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="2"
+                                    Classes="quiet-link"
+                                    Click="OnHotkeySettingsClick"
+                                    Content="{x:Static res:Strings.MainWindow_HotkeyProblemFix}"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <ItemsControl Grid.Row="1"
+                              Margin="18,0,18,0"
+                              VerticalAlignment="Top"
+                              ItemsSource="{Binding CaptureTiles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- Two across rather than four: at four the tiles are
+                                 narrow enough that the titles wrap, and a button
+                                 whose label wraps stops reading as one thing. -->
+                            <UniformGrid Columns="2"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Classes="capture-tile" Click="OnCaptureTileClick" Tag="{Binding}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                    <Border Classes="capture-tile-badge">
+                                        <TextBlock Classes="icon"
+                                                   Text="{Binding Icon}"
+                                                   FontSize="22"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Classes="capture-tile-title" Text="{Binding Title}"/>
+                                        <TextBlock Classes="capture-tile-sub" Text="{Binding Subtitle}"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="2"
+                                            Classes="capture-tile-key"
+                                            IsVisible="{Binding HasHotkey}"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Hotkey}"/>
+                                    </Border>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button Grid.Row="2"
+                        Classes="quiet-link"
+                        Margin="18,10,18,18"
+                        HorizontalAlignment="Left"
+                        Click="OnCaptureMenuClick">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.ellipsis}" FontSize="15"/>
+                        <TextBlock Text="{x:Static res:Strings.MainWindow_MoreCaptureOptions}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Tools: real, today. Built from the same list the tray menu uses, so a
+                 tool added there appears here without a second edit. -->
+            <Grid IsVisible="{Binding IsToolsSelected}" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0"
+                           Classes="plan-note"
+                           Margin="16,14,16,10"
+                           Text="{x:Static res:Strings.MainWindow_ToolsHint}"/>
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="ToolsPanel" Orientation="Horizontal" Margin="16,0,8,16"/>
+                </ScrollViewer>
+            </Grid>
+        </Panel>
+
+        <Border x:Name="DropOverlay"
+                Grid.Row="0"
+                Grid.RowSpan="3"
+                IsVisible="False"
+                IsHitTestVisible="False"
+                Background="{DynamicResource ShareX.Brush.Overlay.Modal}">
+            <Border Width="440"
+                    Padding="32"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Accent.Start}"
+                    BorderThickness="2"
+                    CornerRadius="12">
+                <StackPanel Spacing="12" HorizontalAlignment="Center">
+                    <TextBlock Classes="icon"
+                               Text="{x:Static theming:LucideIcons.upload}"
+                               FontSize="48"
+                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DropOverlayTitle"
+                               Text="{x:Static res:Strings.MainWindow_ReleaseToUploadFiles}"
+                               FontSize="22"
+                               Foreground="{DynamicResource ShareX.Brush.Text}"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DropOverlayDescription"
+                               Text="{x:Static res:Strings.MainWindow_FilesDroppedUploadDescription}"
+                               FontWeight="Normal"
+                               Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Completion notices. Bottom right, over everything, and only as big as
+             what is in it - an ItemsControl aligned to a corner takes no space when
+             it is empty, so the rest of the window stays clickable through it
+             without any hit-test trickery. Spans every row so a notice is not
+             clipped by the title bar or the tab strip. -->
+        <ItemsControl Grid.Row="0"
+                      Grid.RowSpan="3"
+                      Margin="0,0,18,18"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Bottom"
+                      ItemsSource="{Binding Toasts}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="local:UploadToastViewModel">
+                    <Border Classes="toast">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="11">
+                            <TextBlock Classes="icon"
+                                       Classes.toast-ok="{Binding IsDone}"
+                                       Classes.toast-bad="{Binding IsFailed}"
+                                       Text="{Binding Icon}"
+                                       FontSize="18"
+                                       VerticalAlignment="Top"
+                                       Margin="0,1,0,0"/>
+
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="toast-title" Text="{Binding Title}"/>
+                                <TextBlock Classes="toast-name" Text="{Binding Name}"/>
+                                <TextBlock Classes="toast-detail" Text="{Binding Detail}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        Spacing="2"
+                                        VerticalAlignment="Top">
+                                <Button Classes="toast-action"
+                                        IsVisible="{Binding HasLink}"
+                                        Tag="{Binding}"
+                                        ToolTip.Tip="{Binding CopyTooltip}"
+                                        Click="OnToastCopyClick">
+                                    <TextBlock Classes="icon"
+                                               Text="{Binding CopyIcon}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                                <Button Classes="toast-action"
+                                        IsVisible="{Binding HasLink}"
+                                        Tag="{Binding}"
+                                        ToolTip.Tip="{x:Static res:Strings.MySpace_OpenInBrowser}"
+                                        Click="OnToastOpenClick">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.external_link}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                                <Button Classes="toast-action"
+                                        Tag="{Binding}"
+                                        ToolTip.Tip="{x:Static res:Strings.MainWindow_ToastDismiss}"
+                                        Click="OnToastDismissClick">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.x}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</Window>

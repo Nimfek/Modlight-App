@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:localization="using:ShareX.HelpersLib.Localization"
+        x:Class="ShareX.HelpersLib.OutputBoxWindow"
+        Width="900"
+        Height="650"
+        MinWidth="520"
+        MinHeight="360"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <Style Selector="Button.compact">
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="*,Auto"
+              RowSpacing="10"
+              Margin="12"
+              Background="{DynamicResource ShareX.Brush.Background.Main}">
+            <TextBox x:Name="OutputTextBox"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="NoWrap"
+                     FontFamily="Cascadia Mono, Consolas, monospace"
+                     FontSize="12"
+                     Padding="10"
+                     VerticalContentAlignment="Top"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
+                <Button Classes="compact"
+                        Content="{x:Static localization:Strings.OutputBoxWindow_Copy_all}"
+                        Click="OnCopyAllClick"/>
+                <Button Classes="compact primary"
+                        Grid.Column="2"
+                        Content="{x:Static localization:Strings.OutputBoxWindow_Close}"
+                        IsDefault="True"
+                        IsCancel="True"
+                        Click="OnCloseClick"/>
+            </Grid>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

@@ -1,0 +1,19 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ShareX.ImageEditor.App.App"
+             RequestedThemeVariant="Default">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://ShareX.Avalonia/Theming/ShareXTheme.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://ShareX.Avalonia/Theming/ControlStyles.axaml"/>
+        <StyleInclude Source="avares://ShareX.Avalonia/Theming/ToolStyles.axaml"/>
+        <StyleInclude Source="avares://ShareX.ImageEditor/Presentation/Theming/EditorStyles.axaml"/>
+    </Application.Styles>
+</Application>

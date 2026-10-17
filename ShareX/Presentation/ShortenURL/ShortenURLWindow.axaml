@@ -1,0 +1,137 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.ShortenURLWindow"
+        x:CompileBindings="False"
+        Title="{x:Static res:Strings.ShortenURLWindow_Title}"
+        Width="620"
+        SizeToContent="Height"
+        MinWidth="480"
+        CanResize="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <Style Selector="Border.input-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="TextBlock.field">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+        <Border Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                Padding="18,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Width="40"
+                        Height="40"
+                        CornerRadius="6"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}">
+                    <TextBlock Classes="icon"
+                               Text="{x:Static theming:LucideIcons.link_2}"
+                               FontSize="20"
+                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Static res:Strings.ShortenURLWindow_Heading}"
+                               FontSize="19"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Classes="input-card"
+                Margin="18,14,18,0">
+            <StackPanel Spacing="6">
+                <TextBlock Classes="field" Text="{x:Static res:Strings.ShortenURLWindow_URL}"/>
+                <TextBox x:Name="URLTextBox"
+                         MinHeight="32"
+                         Padding="8,5"
+                         PlaceholderText="https://example.com/long-url"
+                         TextChanged="OnURLChanged"/>
+                <TextBlock Classes="hint" Text="{x:Static res:Strings.ShortenURLWindow_URLHint}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2"
+                Classes="input-card"
+                Margin="18,10,18,0">
+            <StackPanel Spacing="12">
+                <TextBlock Classes="field" Text="{x:Static res:Strings.ShortenURLWindow_Options}"/>
+
+                <StackPanel Spacing="5">
+                    <TextBlock Text="{x:Static res:Strings.ShortenURLWindow_CustomCode}"/>
+                    <TextBox x:Name="CustomCodeTextBox"
+                             MinHeight="30"
+                             Padding="8,4"
+                             PlaceholderText="my-link"/>
+                    <TextBlock Classes="hint" Text="{x:Static res:Strings.ShortenURLWindow_CustomCodeHint}"/>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="{x:Static res:Strings.ShortenURLWindow_Expiry}"/>
+                        <ComboBox x:Name="ExpiryComboBox" HorizontalAlignment="Stretch" MinHeight="30"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="5">
+                        <TextBlock Text="{x:Static res:Strings.ShortenURLWindow_Password}"/>
+                        <TextBox x:Name="PasswordTextBox"
+                                 MinHeight="30"
+                                 Padding="8,4"
+                                 PasswordChar="&#x2022;"
+                                 PlaceholderText="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Classes="hint" Text="{x:Static res:Strings.ShortenURLWindow_PasswordHint}"/>
+
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="UseTagCheckBox"
+                              IsChecked="True"
+                              Content="{x:Static res:Strings.ShortenURLWindow_UseTag}"/>
+                    <TextBlock Classes="hint" Text="{x:Static res:Strings.ShortenURLWindow_UseTagHint}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="7"
+                    Margin="18,14,18,18">
+            <Button Classes="compact"
+                    Content="{x:Static res:Strings.ShortenURLWindow_Cancel}"
+                    IsCancel="True"
+                    Click="OnCancelClick"/>
+            <Button x:Name="ShortenButton"
+                    Classes="compact primary"
+                    Content="{x:Static res:Strings.ShortenURLWindow_Shorten}"
+                    IsDefault="True"
+                    Click="OnShortenClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

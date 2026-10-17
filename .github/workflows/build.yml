@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**/*.md", "docs/**"]
+  pull_request:
+    paths-ignore: ["**/*.md", "docs/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # The app project, not the solution: some upstream projects in ShareX.sln do
+      # not target this setup and fail with NETSDK1047.
+      - name: Build
+        run: dotnet build ShareX/ShareX.csproj -c Release
+
+      - name: Test
+        run: dotnet run --project ShareX.Tests -c Release

@@ -1,0 +1,543 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.AdminView"
+             x:CompileBindings="False">
+
+    <!-- Every style this tab needs is declared here rather than borrowed from the
+         window's own set, for the reason the Upload tab gives: a class name inherited
+         from a neighbour is a dependency nobody can see, and the neighbour is a
+         1800-line file being edited by other hands. The `ad-` prefix guarantees no
+         collision in either direction.
+
+         Not one colour is written down. Fourteen skins in two modes each read their
+         palette from the ShareX.Brush.* tokens, and a literal here would be the single
+         patch on the screen that refuses to follow them. -->
+    <UserControl.Styles>
+        <Style Selector="Border.ad-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <!-- The disk is the one thing on this screen that can be an emergency, so the
+             card itself changes rather than only a chip inside it. -->
+        <Style Selector="Border.ad-card.low">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+
+        <Style Selector="Border.ad-card.critical">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+
+        <Style Selector="TextBlock.ad-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.ad-body">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- Tabular figures throughout: a column of sizes that jitters as digits change
+             width is a column nobody can compare down. -->
+        <Style Selector="TextBlock.ad-figure">
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+
+        <Style Selector="TextBlock.ad-value">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+
+        <Style Selector="TextBlock.ad-label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+
+        <Style Selector="TextBlock.ad-hint">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+
+        <!-- Dots, not colour names. Each one is the same brush as the segment it labels. -->
+        <Style Selector="Border.ad-dot">
+            <Setter Property="Width" Value="9"/>
+            <Setter Property="Height" Value="9"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Border.ad-notice">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style Selector="Button.ad-quiet">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.ad-quiet /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ad-quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.ad-quiet:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.ad-quiet TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- The share bars in the breakdowns. Fluent gives ProgressBar a MinWidth of 200
+             that wins over Width during measure, which is how a bar pushes its own row
+             off the panel; it has to be said out loud here as it is in the main window. -->
+        <Style Selector="ProgressBar.ad-share">
+            <Setter Property="Height" Value="5"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid x:Name="Root" RowDefinitions="Auto,*">
+
+        <!-- Header. Which server, when it was read, and how to read it again. -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="16,12">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0"
+                           Classes="icon"
+                           Text="{x:Static theming:LucideIcons.hard_drive}"
+                           FontSize="19"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"
+                           Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Classes="ad-title" Text="{x:Static res:Strings.Admin_Title}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="ad-hint" Text="{Binding HostText}"/>
+                        <TextBlock Classes="ad-hint"
+                                   Text="{Binding CheckedText}"
+                                   IsVisible="{Binding HasReport}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Classes="ad-quiet"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding !IsLoading}"
+                        ToolTip.Tip="{x:Static res:Strings.Admin_Refresh}"
+                        Click="OnRefreshClick">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.refresh_cw}"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Static res:Strings.Admin_Refresh}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="16" Spacing="12">
+
+                <!-- Waiting. -->
+                <Border Classes="ad-card" IsVisible="{Binding IsLoading}">
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.hard_drive}"
+                                   FontSize="16"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                        <TextBlock Classes="ad-body"
+                                   VerticalAlignment="Center"
+                                   Text="{x:Static res:Strings.Admin_Loading}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Anything that is not a report. One panel, four sentences, and a
+                     Retry button only where trying again could possibly help. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasProblem}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Classes="icon"
+                                       Text="{Binding ProblemIcon}"
+                                       FontSize="18"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <TextBlock Classes="ad-title"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding ProblemTitle}"/>
+                        </StackPanel>
+                        <TextBlock Classes="ad-body" Text="{Binding ProblemBody}"/>
+                        <Button Classes="ad-quiet"
+                                HorizontalAlignment="Left"
+                                IsVisible="{Binding CanRetry}"
+                                Click="OnRefreshClick">
+                            <TextBlock Text="{x:Static res:Strings.Admin_Retry}"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- The machine. -->
+                <Border Classes="ad-card"
+                        Classes.low="{Binding IsPressureLow}"
+                        Classes.critical="{Binding IsPressureCritical}"
+                        IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="ad-body" Text="{Binding SourceText}"/>
+                            <Border Grid.Column="1"
+                                    IsVisible="{Binding HasFilesystem}"
+                                    VerticalAlignment="Top"
+                                    Margin="12,0,0,0"
+                                    CornerRadius="9"
+                                    Padding="9,3"
+                                    Background="{DynamicResource ShareX.Brush.Control.Background.Hover}">
+                                <TextBlock Classes="ad-value" Text="{Binding FreeBadgeText}"/>
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                            <TextBlock Classes="ad-figure" Text="{Binding UsedText}"/>
+                            <TextBlock Classes="ad-body"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,4"
+                                       Text="{Binding OfTotalText}"/>
+                        </StackPanel>
+
+                        <!-- The stacked bar. Its four widths are star weights taken
+                             straight from the byte counts, assigned from the code-behind
+                             so the proportion is arithmetic rather than a layout guess. -->
+                        <Border Height="10"
+                                CornerRadius="5"
+                                ClipToBounds="True"
+                                IsVisible="{Binding HasFilesystem}"
+                                Background="{DynamicResource ShareX.Brush.Control.Background.Hover}">
+                            <Grid x:Name="Bar" ColumnDefinitions="0*,0*,0*,1*">
+                                <Border Grid.Column="0" Background="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                <Border Grid.Column="1" Background="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                                <Border Grid.Column="2"
+                                        Opacity="0.35"
+                                        Background="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                <Border Grid.Column="3" Background="Transparent"/>
+                            </Grid>
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Legend}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:AdminLegendViewModel">
+                                    <StackPanel Margin="0,0,26,6" Spacing="3">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <Border Classes="ad-dot"
+                                                    IsVisible="{Binding IsLive}"
+                                                    Background="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                            <Border Classes="ad-dot"
+                                                    IsVisible="{Binding IsTrash}"
+                                                    Background="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                                            <Border Classes="ad-dot"
+                                                    Opacity="0.35"
+                                                    IsVisible="{Binding IsOther}"
+                                                    Background="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                            <Border Classes="ad-dot"
+                                                    IsVisible="{Binding IsFree}"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                                                    Background="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+                                            <Border Classes="ad-dot"
+                                                    IsVisible="{Binding IsApp}"
+                                                    Background="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                            <TextBlock Classes="ad-label" Text="{Binding Label}"/>
+                                        </StackPanel>
+                                        <TextBlock Classes="ad-value" Margin="16,0,0,0" Text="{Binding Value}"/>
+                                        <TextBlock Classes="ad-hint" Margin="16,0,0,0" Text="{Binding Hint}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Classes="ad-notice" IsVisible="{Binding HasPressureNote}">
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                           FontSize="15"
+                                           VerticalAlignment="Top"
+                                           Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                                <TextBlock Classes="ad-body" Text="{Binding PressureNote}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Where the space went. -->
+                <TextBlock Classes="ad-body"
+                           Margin="2,4,2,0"
+                           IsVisible="{Binding HasReport}"
+                           Text="{Binding InsightsText}"/>
+
+                <!-- Trash. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.trash_2}"
+                                       FontSize="15"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="ad-title" Text="{Binding TrashTitle}"/>
+                                <TextBlock Classes="ad-body" Text="{Binding TrashDesc}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,26,6" Spacing="3">
+                                <TextBlock Classes="ad-hint" Text="{x:Static res:Strings.Admin_TrashHeld}"/>
+                                <TextBlock Classes="ad-value" Text="{Binding TrashHeldText}"/>
+                                <TextBlock Classes="ad-hint" Text="{Binding TrashHeldHint}"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,26,6" Spacing="3">
+                                <TextBlock Classes="ad-hint" Text="{Binding TrashDueSoonLabel}"/>
+                                <TextBlock Classes="ad-value" Text="{Binding TrashDueSoonText}"/>
+                                <TextBlock Classes="ad-hint" Text="{Binding TrashDueSoonHint}"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,26,6" Spacing="3">
+                                <TextBlock Classes="ad-hint" Text="{x:Static res:Strings.Admin_TrashOldest}"/>
+                                <TextBlock Classes="ad-value" Text="{Binding TrashOldestText}"/>
+                                <TextBlock Classes="ad-hint" Text="{x:Static res:Strings.Admin_TrashOldestHint}"/>
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <Border Classes="ad-notice" IsVisible="{Binding HasTrashOverdue}">
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                           FontSize="15"
+                                           VerticalAlignment="Top"
+                                           Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                                <TextBlock Classes="ad-body" Text="{Binding TrashOverdueText}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- By file type. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.shapes}"
+                                       FontSize="15"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="ad-title" Text="{x:Static res:Strings.Admin_KindsTitle}"/>
+                                <TextBlock Classes="ad-body" Text="{x:Static res:Strings.Admin_KindsDesc}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Classes="ad-body"
+                                   IsVisible="{Binding !HasKinds}"
+                                   Text="{x:Static res:Strings.Admin_KindsEmpty}"/>
+
+                        <ItemsControl ItemsSource="{Binding Kinds}" IsVisible="{Binding HasKinds}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:AdminShareViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,14,0">
+                                            <TextBlock Classes="ad-label" Text="{Binding Label}"/>
+                                            <ProgressBar Classes="ad-share" Value="{Binding Percent}"/>
+                                            <TextBlock Classes="ad-hint" Text="{Binding Hint}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Classes="ad-value"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding Value}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- By account. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.users}"
+                                       FontSize="15"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="ad-title" Text="{x:Static res:Strings.Admin_AccountsTitle}"/>
+                                <TextBlock Classes="ad-body" Text="{x:Static res:Strings.Admin_AccountsDesc}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Classes="ad-body"
+                                   IsVisible="{Binding !HasAccounts}"
+                                   Text="{x:Static res:Strings.Admin_AccountsEmpty}"/>
+
+                        <ItemsControl ItemsSource="{Binding Accounts}" IsVisible="{Binding HasAccounts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:AdminShareViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,14,0">
+                                            <TextBlock Classes="ad-label" Text="{Binding Label}"/>
+                                            <ProgressBar Classes="ad-share" Value="{Binding Percent}"/>
+                                            <TextBlock Classes="ad-hint" Text="{Binding Hint}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Classes="ad-value"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding Value}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Biggest files. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.arrow_down_wide_narrow}"
+                                       FontSize="15"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="ad-title" Text="{x:Static res:Strings.Admin_BiggestTitle}"/>
+                                <TextBlock Classes="ad-body" Text="{x:Static res:Strings.Admin_BiggestDesc}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Classes="ad-body"
+                                   IsVisible="{Binding !HasBiggest}"
+                                   Text="{x:Static res:Strings.Admin_BiggestEmpty}"/>
+
+                        <ItemsControl ItemsSource="{Binding Biggest}" IsVisible="{Binding HasBiggest}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:AdminFileViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,9">
+                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,14,0">
+                                            <TextBlock Classes="ad-label" Text="{Binding Name}"/>
+                                            <TextBlock Classes="ad-hint" Text="{Binding Meta}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Classes="ad-value"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding Size}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Untouched. -->
+                <Border Classes="ad-card" IsVisible="{Binding HasReport}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.snowflake}"
+                                       FontSize="15"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,9,0"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="ad-title" Text="{Binding ColdTitle}"/>
+                                <TextBlock Classes="ad-body" Text="{x:Static res:Strings.Admin_ColdDesc}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Classes="ad-value"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"
+                                       IsVisible="{Binding HasCold}"
+                                       Text="{Binding ColdSummary}"/>
+                        </Grid>
+
+                        <TextBlock Classes="ad-body"
+                                   IsVisible="{Binding !HasCold}"
+                                   Text="{Binding ColdEmptyText}"/>
+
+                        <ItemsControl ItemsSource="{Binding Cold}" IsVisible="{Binding HasCold}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:AdminFileViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,9">
+                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,14,0">
+                                            <TextBlock Classes="ad-label" Text="{Binding Name}"/>
+                                            <TextBlock Classes="ad-hint" Text="{Binding Meta}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Classes="ad-value"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding Size}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- The most important sentence on the screen. Without it,
+                             "no recorded access" invites somebody to delete a file that
+                             is fetched every week and arrived here without a history. -->
+                        <TextBlock Classes="ad-body"
+                                   IsVisible="{Binding HasCold}"
+                                   Text="{x:Static res:Strings.Admin_ColdNote}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

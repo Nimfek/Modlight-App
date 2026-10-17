@@ -1,0 +1,202 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.ModlightDuplicatesWindow"
+        x:CompileBindings="False"
+        Width="760"
+        Height="640"
+        MinWidth="620"
+        MinHeight="420"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.state">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- The same brush every other failure in this app is written in; there is no
+             separate "danger" token, and inventing one here would be a fourteenth skin's
+             worth of colour that nobody had checked for contrast. -->
+        <Style Selector="TextBlock.state.failed">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Button.chip">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="11,3"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Toolbar}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,1"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+            <!-- What the scan found, before anything is proposed. -->
+            <StackPanel Margin="22,18,22,10" Spacing="6">
+                <TextBlock Text="{x:Static res:Strings.MySpace_DuplicatesTitle}"
+                           FontSize="17"
+                           FontWeight="SemiBold"/>
+                <TextBlock Classes="hint" Text="{Binding SummaryText}"/>
+                <TextBlock Classes="state" IsVisible="{Binding HasDueText}" Text="{Binding DueText}"/>
+                <TextBlock Classes="hint" IsVisible="{Binding HasBlindText}" Text="{Binding BlindText}"/>
+                <TextBlock Classes="hint" IsVisible="{Binding HasTruncatedText}" Text="{Binding TruncatedText}"/>
+                <TextBlock Classes="state"
+                           IsVisible="{Binding HasStatus}"
+                           Classes.failed="{Binding Failed}"
+                           Text="{Binding Status}"/>
+            </StackPanel>
+
+            <ProgressBar Grid.Row="1"
+                         Height="2"
+                         MinHeight="0"
+                         MinWidth="0"
+                         IsIndeterminate="True"
+                         IsVisible="{Binding IsBusy}"/>
+
+            <ScrollViewer Grid.Row="2" Padding="22,4,22,14">
+                <StackPanel Spacing="10">
+
+                    <TextBlock Classes="hint"
+                               IsVisible="{Binding ShowEmpty}"
+                               Text="{x:Static res:Strings.MySpace_DuplicatesNone}"/>
+
+                    <ItemsControl ItemsSource="{Binding Groups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="card" Margin="0,0,0,10">
+                                    <StackPanel Spacing="9">
+
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.copy}"
+                                                       FontSize="15"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding HeaderText}"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Border Grid.Column="2"
+                                                    Classes="badge"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding Dismissed}">
+                                                <TextBlock FontSize="11"
+                                                           Text="{x:Static res:Strings.MySpace_DuplicatesKeptBadge}"/>
+                                            </Border>
+                                            <Button Grid.Column="3"
+                                                    Classes="chip"
+                                                    VerticalAlignment="Center"
+                                                    IsEnabled="{Binding IsIdle}"
+                                                    Content="{Binding KeepLabel}"
+                                                    Click="OnKeepClick"/>
+                                        </Grid>
+
+                                        <TextBlock Classes="hint"
+                                                   IsVisible="{Binding IsPartial}"
+                                                   Text="{Binding PartialText}"/>
+
+                                        <ItemsControl ItemsSource="{Binding Files}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto"
+                                                          ColumnSpacing="9"
+                                                          Margin="0,2">
+                                                        <CheckBox VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding Name}"
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   MaxLines="1"/>
+                                                        <Border Grid.Column="2"
+                                                                Classes="badge"
+                                                                VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsOldest}">
+                                                            <TextBlock FontSize="11" Text="{Binding OldestText}"/>
+                                                        </Border>
+                                                        <TextBlock Grid.Column="3"
+                                                                   Classes="hint"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding FolderText}"
+                                                                   MaxWidth="180"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   MaxLines="1"/>
+                                                        <TextBlock Grid.Column="4"
+                                                                   Classes="hint"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding AgeText}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="3"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+                    <Button Classes="chip"
+                            IsVisible="{Binding HasGroups}"
+                            Content="{x:Static res:Strings.MySpace_DuplicatesSelectExtras}"
+                            Click="OnSelectExtrasClick"/>
+                    <Button Grid.Column="1"
+                            Classes="chip"
+                            IsVisible="{Binding HasGroups}"
+                            Content="{x:Static res:Strings.MySpace_DuplicatesClear}"
+                            Click="OnClearClick"/>
+                    <Button Grid.Column="3"
+                            Classes="compact"
+                            IsCancel="True"
+                            Content="{x:Static res:Strings.MySpace_Close}"
+                            Click="OnCloseClick"/>
+                    <Button Grid.Column="4"
+                            Classes="compact primary"
+                            IsEnabled="{Binding CanTrash}"
+                            Content="{Binding TrashLabel}"
+                            Click="OnTrashClick"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

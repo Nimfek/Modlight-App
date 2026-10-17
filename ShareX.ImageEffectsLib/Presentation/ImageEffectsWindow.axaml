@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ShareX.ImageEffectsLib"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        xmlns:localization="using:ShareX.ImageEffectsLib.Localization"
+        x:Class="ShareX.ImageEffectsLib.ImageEffectsWindow"
+        x:DataType="vm:ImageEffectsViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1180" Height="760" MinWidth="1040" MinHeight="620"
+        WindowStartupLocation="CenterScreen">
+    <Window.Styles>
+        <Style Selector="ListBox.compact ListBoxItem">
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="MinHeight" Value="32"/>
+        </Style>
+        <Style Selector="Button.picker-button">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+            <Style Selector="^ TextBlock.icon">
+                <Setter Property="FontSize" Value="16"/>
+            </Style>
+        </Style>
+    </Window.Styles>
+    <Grid Background="{DynamicResource ShareX.Brush.Background.Main}">
+        <Grid Margin="16" RowDefinitions="*,Auto" RowSpacing="12">
+            <Grid ColumnDefinitions="320,360,*" ColumnSpacing="12">
+                <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                    <Border Classes="tool-panel">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4">
+                                <TextBlock Classes="section-heading" Text="{x:Static localization:Strings.ImageEffectsWindow_Presets}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Classes="picker-button" Command="{Binding NewPresetCommand}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_New_preset}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.plus}"/></Button>
+                                <Button Grid.Column="2" Classes="picker-button" Command="{Binding RemovePresetCommand}" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Remove_preset}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.minus}"/></Button>
+                                <Button Grid.Column="3" Classes="picker-button" Command="{Binding DuplicatePresetCommand}" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Duplicate_preset}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.copy}"/></Button>
+                                <Button Grid.Column="4" Classes="picker-button" Command="{Binding MovePresetUpCommand}" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Move_up}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.arrow_up}"/></Button>
+                                <Button Grid.Column="5" Classes="picker-button" Command="{Binding MovePresetDownCommand}" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Move_down}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.arrow_down}"/></Button>
+                            </Grid>
+                            <ComboBox Grid.Row="1" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ImageEffectPresetItemViewModel">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="Normal" TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBox Grid.Row="2" Text="{Binding PresetName}" PlaceholderText="{x:Static localization:Strings.ImageEffectsWindow_Preset_name}" IsEnabled="{Binding HasSelectedPreset}"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Classes="tool-panel">
+                        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="section-heading" Text="{x:Static localization:Strings.ImageEffectsWindow_Effects}"/>
+                                <Button Grid.Column="1" Classes="picker-button" Command="{Binding RefreshPreviewCommand}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Refresh_preview}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.refresh_cw}"/></Button>
+                            </Grid>
+                            <TextBox Grid.Row="1" Text="{Binding EffectName}" PlaceholderText="{x:Static localization:Strings.ImageEffectsWindow_Custom_effect_name}" IsEnabled="{Binding HasSelectedEffect}"/>
+                            <ListBox Grid.Row="2" Classes="compact" ItemsSource="{Binding Effects}" SelectedItem="{Binding SelectedEffect}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ImageEffectItemViewModel">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="0">
+                                            <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontWeight="Normal" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="4">
+                                <Button Classes="picker-button" Click="OnAddEffectClick" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Add_effect}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.plus}"/></Button>
+                                <Button Grid.Column="1" Classes="picker-button" Command="{Binding RemoveEffectCommand}" IsEnabled="{Binding HasSelectedEffect}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Remove_effect}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.minus}"/></Button>
+                                <Button Grid.Column="2" Classes="picker-button" Command="{Binding DuplicateEffectCommand}" IsEnabled="{Binding HasSelectedEffect}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Duplicate_effect}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.copy}"/></Button>
+                                <Button Grid.Column="3" Classes="picker-button" Command="{Binding MoveEffectUpCommand}" IsEnabled="{Binding HasSelectedEffect}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Move_up}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.arrow_up}"/></Button>
+                                <Button Grid.Column="4" Classes="picker-button" Command="{Binding MoveEffectDownCommand}" IsEnabled="{Binding HasSelectedEffect}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Move_down}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.arrow_down}"/></Button>
+                                <Button Grid.Column="5" Classes="picker-button" Click="OnClearEffectsClick" IsEnabled="{Binding HasSelectedPreset}" ToolTip.Tip="{x:Static localization:Strings.ImageEffectsWindow_Clear_effects}"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.eraser}"/></Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border Grid.Column="1" Classes="tool-panel">
+                    <vm:ImageEffectOptionsPanel x:Name="EffectOptionsPanel"/>
+                </Border>
+
+                <Border Grid.Column="2" BorderBrush="{DynamicResource ShareX.Brush.Border}" BorderThickness="1"
+                        Background="{DynamicResource ShareX.Brush.Checkered}" CornerRadius="4" ClipToBounds="True"
+                        Cursor="Hand" PointerPressed="OnPreviewPointerPressed">
+                    <Grid>
+                        <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        <ProgressBar IsIndeterminate="True" Height="4" VerticalAlignment="Top" IsVisible="{Binding IsBusy}"/>
+                        <Border Padding="8,4" Margin="8" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Background="{DynamicResource ShareX.Brush.Background.Panel}" CornerRadius="4"
+                                IsVisible="{Binding HasError}">
+                            <TextBlock Text="{Binding ErrorMessage}" FontWeight="Normal"
+                                       Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding LoadFileCommand}" IsVisible="{Binding IsToolMode}">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.folder_open}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Open_image}"/></StackPanel>
+                    </Button>
+                    <Button Command="{Binding LoadClipboardCommand}" IsVisible="{Binding IsToolMode}">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.clipboard_paste}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Load_from_clipboard}"/></StackPanel>
+                    </Button>
+                    <Button Command="{Binding PackagePresetCommand}" IsEnabled="{Binding HasSelectedPreset}">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.package}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Package_preset}"/></StackPanel>
+                    </Button>
+                    <Button Command="{Binding OpenHelpCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.external_link}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Image_effects_page}"/></StackPanel>
+                    </Button>
+                </StackPanel>
+                <Button Grid.Column="2" Command="{Binding SaveCommand}" IsVisible="{Binding IsToolMode}">
+                    <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.save}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Save_image}"/></StackPanel>
+                </Button>
+                <Button Grid.Column="3" Command="{Binding UploadCommand}" IsVisible="{Binding IsToolMode}">
+                    <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.upload}"/><TextBlock Text="{x:Static localization:Strings.ImageEffectsWindow_Upload_image}"/></StackPanel>
+                </Button>
+                <Button Grid.Column="3" Command="{Binding AcceptCommand}" IsVisible="{Binding IsEditorMode}" Content="{x:Static localization:Strings.ImageEffectsWindow_Continue}"/>
+                <Button Grid.Column="4" Command="{Binding CancelCommand}" Content="{Binding CloseButtonText}"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

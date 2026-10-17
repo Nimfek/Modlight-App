@@ -1,0 +1,167 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="using:ShareX.AvaloniaUI.Controls"
+             xmlns:localization="using:ShareX.AvaloniaUI.Localization"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             mc:Ignorable="d"
+             d:DesignWidth="230"
+             d:DesignHeight="600"
+             x:Class="ShareX.AvaloniaUI.Controls.SettingsNavigation"
+             x:Name="Root">
+
+    <UserControl.Styles>
+        <Style Selector="TreeView">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TreeViewItem">
+            <Setter Property="IsVisible" Value="{ReflectionBinding IsVisible}"/>
+            <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- Text.OnPanel, not Text. Twelve of the fourteen skins give the two the same
+             value; deco and riso in light mode put a saturated navy behind this pane, and
+             the ordinary text colour measured 1.04:1 on it - twelve rows of dark text on
+             dark blue, in the one pane whose only job is orientation. -->
+        <Style Selector="TreeViewItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.OnPanel}"/>
+        </Style>
+
+        <!-- The row's fill is painted on the TEMPLATE's border, not through Background.
+             Setting Background on the item did nothing: Fluent's own template overrides
+             it on this part with a 60%-opacity accent, and the label - which DID get
+             ShareX.Brush.Accent.Foreground, a colour chosen against the FULL accent -
+             was left at 2.48-4.31:1 in twenty-two of the twenty-eight skin/mode
+             combinations. Graphite on washed-out periwinkle in the default skin.
+
+             Accent.Start rather than the ShareX.Brush.Accent gradient, and that is the
+             point: Accent.Foreground is picked by ThemeManager against Accent.Start, so
+             filling with exactly that colour makes the pairing the contrast gate reports
+             (label/accent) the pairing on the screen. The gradient's far end is a stop
+             darker and measures 4.38:1 in one skin. -->
+        <Style Selector="TreeViewItem:selected /template/ Border.TreeViewItemLayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected:pointerover /template/ Border.TreeViewItemLayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected:pressed /template/ Border.TreeViewItemLayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected:focus /template/ Border.TreeViewItemLayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+
+        <Style Selector="TreeViewItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+
+        <!-- A group's own row can be selected now (see SettingsWindow.Select), and the
+             rule above is a DESCENDANT selector, so without this the sections inside an
+             open selected group would be painted the accent's foreground on the panel -
+             where they disappear. Declared last, because Avalonia gives the property to
+             the last matching style. -->
+        <Style Selector="TreeViewItem:selected TreeViewItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.OnPanel}"/>
+        </Style>
+
+        <!-- Where the keyboard is, which the selection fill cannot say on its own: it is
+             under 3:1 against this pane in half the skins, and when focus and selection
+             land on the same row there is nothing at all to see. Focus.OnPanel is
+             measured against the panel colour by Tools/generate-skins.py. -->
+        <Style Selector="TreeViewItem:focus-visible /template/ Border.TreeViewItemLayoutRoot">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Focus.OnPanel}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+
+        <Style Selector="TextBlock.no-results">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary.OnPanel}"/>
+        </Style>
+
+        <Style Selector="Button.search-clear">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,7,0"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.search-clear /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
+        <Grid>
+            <TextBlock Margin="8,0,0,0"
+                       Classes="icon"
+                       Text="{x:Static theming:LucideIcons.search}"
+                       FontSize="16"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       ZIndex="1"/>
+            <TextBox Padding="30,8,36,8"
+                     PlaceholderText="{x:Static localization:Strings.SettingsNavigation_Search_settings}"
+                     Text="{Binding SearchText, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <!-- The way out of a query that found nothing, without having to work out
+                 that the field is the thing that has to be emptied. -->
+            <Button Classes="search-clear"
+                    ZIndex="1"
+                    IsVisible="{Binding HasQuery, ElementName=Root}"
+                    Click="OnClearSearchClick"
+                    ToolTip.Tip="{x:Static localization:Strings.SettingsNavigation_ClearSearch}">
+                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.x}" FontSize="15"/>
+            </Button>
+        </Grid>
+
+        <!-- An empty pane reads as a broken program. The list said nothing at all when a
+             query matched nothing - no row, no message - while the page beside it still
+             showed the previous section's heading over a blank body. -->
+        <TextBlock Grid.Row="1"
+                   Classes="no-results"
+                   IsVisible="{Binding !HasResults, ElementName=Root}"
+                   Text="{Binding NoResultsMessage, ElementName=Root}"/>
+
+        <TreeView Grid.Row="2"
+                  ItemsSource="{Binding Items, ElementName=Root}"
+                  SelectedItem="{Binding SelectedItem, ElementName=Root, Mode=TwoWay}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate DataType="controls:SettingsNavigationItem"
+                                  ItemsSource="{Binding Children}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="2,3"
+                          ToolTip.Tip="{Binding Tooltip}"
+                          ToolTip.ShowDelay="700">
+                        <TextBlock Classes="icon"
+                                   Text="{Binding Icon}"
+                                   IsVisible="{Binding HasIcon}"
+                                   FontSize="16"
+                                   Width="20"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Title}"
+                                   FontWeight="Normal"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </Grid>
+</UserControl>

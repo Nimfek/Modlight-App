@@ -1,0 +1,185 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.ModlightLinkSettingsWindow"
+        x:CompileBindings="False"
+        Width="560"
+        MinWidth="480"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.state">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Button.chip">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="11,3"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="Border.rule">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Border}"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="*,Auto">
+            <StackPanel Margin="22,20,22,18" Spacing="14">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="{x:Static res:Strings.MySpace_LinkSettings}"
+                               FontSize="17"
+                               FontWeight="SemiBold"/>
+                    <TextBlock x:Name="FileName" Classes="hint"/>
+                </StackPanel>
+
+                <Border Classes="rule"/>
+
+                <!-- Expiry -->
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.clock}"
+                                   FontSize="15"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                        <TextBlock Classes="section"
+                                   Text="{x:Static res:Strings.MySpace_LinkExpiry}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{x:Static res:Strings.MySpace_LinkExpiryHint}"/>
+
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="chip" Margin="0,0,7,7" Tag="1"
+                                Content="{x:Static res:Strings.MySpace_LinkExpiry1h}" Click="OnExpiryPresetClick"/>
+                        <Button Classes="chip" Margin="0,0,7,7" Tag="24"
+                                Content="{x:Static res:Strings.MySpace_LinkExpiry24h}" Click="OnExpiryPresetClick"/>
+                        <Button Classes="chip" Margin="0,0,7,7" Tag="168"
+                                Content="{x:Static res:Strings.MySpace_LinkExpiry7d}" Click="OnExpiryPresetClick"/>
+                        <Button Classes="chip" Margin="0,0,7,7" Tag="720"
+                                Content="{x:Static res:Strings.MySpace_LinkExpiry30d}" Click="OnExpiryPresetClick"/>
+                        <Button Classes="chip" Margin="0,0,7,7" Tag="0"
+                                Content="{x:Static res:Strings.MySpace_LinkExpiryNever}" Click="OnExpiryPresetClick"/>
+                    </WrapPanel>
+
+                    <TextBlock x:Name="ExpiryState" Classes="state"/>
+                </StackPanel>
+
+                <Border Classes="rule"/>
+
+                <!-- View limit -->
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.eye}"
+                                   FontSize="15"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                        <TextBlock Classes="section"
+                                   Text="{x:Static res:Strings.MySpace_LinkViewLimit}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{x:Static res:Strings.MySpace_LinkViewLimitHint}"/>
+
+                    <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
+                        <NumericUpDown x:Name="ViewLimit"
+                                       Width="140"
+                                       Minimum="1"
+                                       Increment="1"
+                                       FormatString="0"
+                                       ValueChanged="OnViewLimitChanged"/>
+                        <Button Grid.Column="1"
+                                Classes="chip"
+                                VerticalAlignment="Center"
+                                Content="{x:Static res:Strings.MySpace_LinkOneTime}"
+                                Click="OnOneTimeClick"/>
+                        <Button Grid.Column="2"
+                                Classes="chip"
+                                VerticalAlignment="Center"
+                                Content="{x:Static res:Strings.MySpace_LinkNoLimit}"
+                                Click="OnNoLimitClick"/>
+                    </Grid>
+
+                    <TextBlock x:Name="ViewLimitState" Classes="state"/>
+                </StackPanel>
+
+                <Border Classes="rule"/>
+
+                <!-- Password -->
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.lock_keyhole}"
+                                   FontSize="15"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                        <TextBlock Classes="section"
+                                   Text="{x:Static res:Strings.MySpace_LinkPassword}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{x:Static res:Strings.MySpace_LinkPasswordHint}"/>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBox x:Name="Password"
+                                 PasswordChar="•"
+                                 PlaceholderText="••••••••"
+                                 TextChanged="OnPasswordChanged"/>
+                        <Button x:Name="RemovePasswordButton"
+                                Grid.Column="1"
+                                Classes="chip"
+                                VerticalAlignment="Center"
+                                IsVisible="False"
+                                Content="{x:Static res:Strings.MySpace_LinkRemovePassword}"
+                                Click="OnRemovePasswordClick"/>
+                    </Grid>
+
+                    <TextBlock x:Name="PasswordState" Classes="state"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="compact"
+                            IsCancel="True"
+                            Content="{x:Static res:Strings.MySpace_Cancel}"
+                            Click="OnCancelClick"/>
+                    <Button Classes="compact primary"
+                            IsDefault="True"
+                            Content="{x:Static res:Strings.MySpace_Save}"
+                            Click="OnSaveClick"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

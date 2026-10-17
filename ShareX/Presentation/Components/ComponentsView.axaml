@@ -1,0 +1,174 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             x:Class="ShareX.ComponentsView"
+             x:CompileBindings="False">
+
+    <!-- Self-contained on purpose: this same control is the section inside
+         Application settings AND the whole of the window a failed recording
+         opens, and those two hosts have different styles. Anything it needs to
+         keep its shape is declared here. -->
+    <UserControl.Styles>
+        <Style Selector="Border.component-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <!-- The one that sent the user here is drawn as the answer to their
+             question, not as one of four equal choices. -->
+        <Style Selector="Border.component-card.required">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent}"/>
+        </Style>
+        <Style Selector="TextBlock.component-name">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="TextBlock.component-purpose">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.component-detail">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.component-status">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <!-- The one line on the card that is an offer rather than a fact. -->
+        <Style Selector="TextBlock.component-update">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.component-status.failed">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Button.component-action">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="14,4"/>
+            <Setter Property="MinWidth" Value="96"/>
+        </Style>
+        <Style Selector="ProgressBar.component-progress">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="10">
+        <!-- Only when a feature sent the user here. In settings the list needs
+             no headline; it already has a page title above it. -->
+        <TextBlock Classes="component-name"
+                   FontSize="16"
+                   IsVisible="{Binding HasHeadline}"
+                   Text="{Binding Headline}"
+                   TextWrapping="Wrap"/>
+
+        <TextBlock Classes="component-detail" Text="{Binding Intro}"/>
+
+        <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Classes="component-card" Classes.required="{Binding IsRequired}" Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <CheckBox Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      Margin="0,-2,0,0"
+                                      IsChecked="{Binding IsWanted, Mode=TwoWay}"
+                                      ToolTip.Tip="{x:Static res:Strings.Components_Wanted}"/>
+
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Classes="component-name" Text="{Binding Name}"/>
+                                <TextBlock Classes="component-purpose" Text="{Binding Purpose}"/>
+                                <TextBlock Classes="component-detail" Text="{Binding Details}"/>
+                                <!-- What is actually on the disk, read from the binary
+                                     rather than from the catalogue, and a line saying so
+                                     when the publisher has something newer. Both are blank
+                                     until they have been asked. -->
+                                <TextBlock Classes="component-detail"
+                                           IsVisible="{Binding HasVersion}"
+                                           Text="{Binding VersionText}"/>
+                                <TextBlock Classes="component-update"
+                                           IsVisible="{Binding HasUpdateNote}"
+                                           Text="{Binding UpdateNote}"/>
+                                <TextBlock Classes="component-status"
+                                           Classes.failed="{Binding HasFailed}"
+                                           Text="{Binding Status}"/>
+                                <ProgressBar Classes="component-progress"
+                                             IsVisible="{Binding IsBusy}"
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding ProgressValue}"/>
+                                <TextBlock Classes="component-detail"
+                                           IsVisible="{Binding IsBusy}"
+                                           Text="{Binding ProgressText}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Top">
+                                <Button Classes="component-action"
+                                        IsVisible="{Binding CanInstall}"
+                                        Click="OnInstallClick"
+                                        Content="{x:Static res:Strings.Components_Install}"/>
+                                <Button Classes="component-action"
+                                        IsVisible="{Binding CanUpdate}"
+                                        Click="OnUpdateClick"
+                                        Content="{x:Static res:Strings.Components_Update}"/>
+                                <Button Classes="component-action"
+                                        IsVisible="{Binding IsBusy}"
+                                        Click="OnCancelClick"
+                                        Content="{x:Static res:Strings.Components_Cancel}"/>
+                                <Button Classes="component-action"
+                                        IsVisible="{Binding CanRemove}"
+                                        Click="OnRemoveClick"
+                                        Content="{x:Static res:Strings.Components_Remove}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Classes="component-detail" VerticalAlignment="Center" Text="{Binding FolderNote}"/>
+            <Button Grid.Column="1"
+                    Classes="component-action"
+                    IsVisible="{Binding AnythingMissing}"
+                    IsEnabled="{Binding !AnyBusy}"
+                    Click="OnInstallMissingClick"
+                    Content="{x:Static res:Strings.Components_InstallMissing}"/>
+        </Grid>
+
+        <!-- Only when something in the list actually follows a publisher, which today
+             means yt-dlp. On a list of four pinned files this would be a switch with
+             nothing behind it. -->
+        <Border Classes="component-card" IsVisible="{Binding ShowUpdates}">
+            <StackPanel Spacing="8">
+                <CheckBox Content="{x:Static res:Strings.Components_AutoUpdate}"
+                          IsChecked="{Binding AutoUpdate, Mode=TwoWay}"/>
+                <TextBlock Classes="component-detail" Text="{Binding AutoUpdateNote}"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock Classes="component-detail"
+                               VerticalAlignment="Center"
+                               Text="{Binding LastCheckText}"/>
+                    <Button Grid.Column="1"
+                            Classes="component-action"
+                            IsEnabled="{Binding CanCheck}"
+                            Click="OnCheckNowClick"
+                            Content="{x:Static res:Strings.Components_CheckNow}"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

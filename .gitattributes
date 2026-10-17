@@ -1,0 +1,29 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Custom for Visual Studio
+*.cs diff=csharp
+
+# Standard to msysgit
+*.doc diff=astextplain
+*.DOC diff=astextplain
+*.docx diff=astextplain
+*.DOCX diff=astextplain
+*.dot diff=astextplain
+*.DOT diff=astextplain
+*.pdf diff=astextplain
+*.PDF diff=astextplain
+*.rtf diff=astextplain
+*.RTF diff=astextplain
+
+# Declare files that will always have CRLF line endings on checkout
+*.sln text eol=crlf
+*.csproj text eol=crlf
+*.cs text eol=crlf
+*.resx text eol=crlf
+
+# Third-party binaries we ship. Auto-detection already classifies these correctly, but
+# they are stated outright because the failure mode is silent: eol normalisation applied
+# to qjs.exe produces a file that is still there, still the right name, and no longer
+# runs - and nothing in the build would say so.
+Tools/quickjs/* binary

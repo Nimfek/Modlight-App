@@ -1,0 +1,294 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        xmlns:res="using:ShareX.Localization"
+        x:Class="ShareX.NotificationWindow"
+        x:CompileBindings="False"
+        CanResize="False"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        WindowDecorations="None"
+        Topmost="True"
+        SizeToContent="WidthAndHeight"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        FontFamily="{DynamicResource ShareX.FontFamily.Default}">
+
+    <!--
+        The rounded corner is drawn by NotificationCard, not by the window. The
+        window is undecorated and transparent, so anything outside the card's
+        10 px radius is simply never painted; the shadow lives in the 14 px
+        gutter around it.
+
+        DWMWA_WINDOW_CORNER_PREFERENCE was the other option and it is the wrong
+        one here: it rounds the WINDOW, and the window is the card plus that
+        gutter, so Windows would round a rectangle 14 px outside anything the
+        user can see. It is also Windows 11 only.
+
+        This depends on a compositor that is allowed to refuse. What happens
+        then is in NotificationWindow.ApplySurface().
+
+        Every colour on this surface comes from ShareX.Brush.* so the toast
+        follows the account's skin like the rest of the app. No literals.
+    -->
+
+    <Window.Styles>
+        <Style Selector="Button.notification-action">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Control.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Control.Border}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+            </Style>
+
+            <!-- The ".static" class is added when Windows reports client area
+                 animation is off. It has to gate the template child as well:
+                 the background fade lives on the ContentPresenter, which code
+                 cannot reach without walking the template. -->
+            <Style Selector="^:not(.static)">
+                <Setter Property="Transitions">
+                    <Transitions>
+                        <BrushTransition Property="Foreground" Duration="0:0:0.14"/>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.09"/>
+                    </Transitions>
+                </Setter>
+            </Style>
+
+            <Style Selector="^:not(.static) /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Transitions">
+                    <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                    </Transitions>
+                </Setter>
+            </Style>
+
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Setter Property="RenderTransform" Value="scale(0.97)"/>
+                <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+            </Style>
+
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            </Style>
+        </Style>
+
+        <!-- The way out.
+
+             Everything else on this card DOES something: the body runs the
+             left-click action, which for an upload is "open the link", and the
+             action row is pinned or fades in with the pointer. Until this button
+             there was no gesture that simply took the toast away - you waited it
+             out or you opened a browser tab you did not ask for.
+
+             So it is deliberately not part of the hover choreography: it carries
+             no opacity of its own and is on screen from the first frame, because
+             a way out that has to be discovered by hovering is not a way out. It
+             is opaque rather than translucent for the same reason - it sits over
+             a screenshot as often as not, and a scrim that happens to land on a
+             white region of the picture would hide the one control that always
+             has to be findable. -->
+        <Style Selector="Button.notification-close">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <!-- Out of the tab order: this window never takes focus (ShowActivated
+                 is false), and a focus ring on a toast is a ring nobody asked for. -->
+            <Setter Property="Focusable" Value="False"/>
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="8"/>
+            </Style>
+
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            </Style>
+
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            </Style>
+
+            <!-- The shared Button style shrinks on press. A 24 px square in a
+                 corner has nowhere to shrink to that does not read as a glitch. -->
+            <Style Selector="^:pressed">
+                <Setter Property="RenderTransform" Value="none"/>
+            </Style>
+        </Style>
+
+        <!-- The only motion this window owns. Code sets Transitions to null
+             (a local value, which beats a style setter) when Windows reports
+             client area animation is off. -->
+        <Style Selector="Border#ImageCaption, Border#ActionsPanel">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- The scrim under the overlays is its own layer on purpose: the
+             surface is translucent over the screenshot, the text on it is not. -->
+        <Style Selector="Border#ActionsScrim">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="Opacity" Value="0.92"/>
+        </Style>
+
+        <!-- Text notifications have no screenshot to see through, so their
+             action row is a real card footer rather than an overlay. -->
+        <Style Selector="Border#ActionsScrim.footer">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="ShadowGutter" Margin="14">
+        <Border x:Name="CardShadow"
+                CornerRadius="10"
+                BoxShadow="0 8 24 -8 #73000000">
+            <Border x:Name="NotificationCard"
+                    MinWidth="1"
+                    MinHeight="1"
+                    CornerRadius="10"
+                    ClipToBounds="True"
+                    Background="{DynamicResource ShareX.Brush.Background.Popup}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="1"
+                    PointerPressed="OnCardPointerPressed"
+                    PointerMoved="OnCardPointerMoved"
+                    PointerReleased="OnCardPointerReleased">
+                <Grid>
+                <Image x:Name="PreviewImage"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+
+                <StackPanel x:Name="TextContent">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Width="36"
+                                Height="36"
+                                CornerRadius="10"
+                                VerticalAlignment="Top"
+                                Background="{DynamicResource ShareX.Brush.Accent.Start}">
+                            <TextBlock x:Name="BadgeIcon"
+                                       Text="{x:Static theming:LucideIcons.info}"
+                                       FontFamily="{DynamicResource ShareX.FontFamily.Icon}"
+                                       FontSize="18"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Foreground}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Top">
+                            <TextBlock x:Name="TitleText"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ShareX.Brush.Text}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="1"/>
+                            <TextBlock x:Name="BodyText"
+                                       FontSize="13"
+                                       LineHeight="18"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="WordEllipsis"
+                                       MaxLines="6"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <Border x:Name="ImageCaption"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Top"
+                        CornerRadius="9,9,0,0"
+                        ClipToBounds="True"
+                        Opacity="0"
+                        IsHitTestVisible="False">
+                    <Grid>
+                        <Border Background="{DynamicResource ShareX.Brush.Background.Popup}"
+                                Opacity="0.92"/>
+                        <StackPanel Margin="12,12,32,12" Spacing="4">
+                            <TextBlock x:Name="ImageTitleText"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ShareX.Brush.Text}"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="2"/>
+                            <TextBlock x:Name="ImageBodyText"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="2"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="ActionsPanel"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Bottom"
+                        CornerRadius="0,0,9,9"
+                        ClipToBounds="True"
+                        Opacity="0">
+                    <Grid>
+                        <Border x:Name="ActionsScrim"/>
+                        <Border x:Name="ActionsDivider"
+                                BorderBrush="{DynamicResource ShareX.Brush.Separator}"
+                                BorderThickness="0,1,0,0"
+                                IsVisible="False"/>
+                        <WrapPanel x:Name="ActionButtons"
+                                   Margin="8"
+                                   ItemSpacing="4"
+                                   LineSpacing="4"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <Button x:Name="CloseButton"
+                        Classes="notification-close"
+                        Width="24"
+                        Height="24"
+                        Margin="0,8,8,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        ToolTip.Tip="{x:Static res:Strings.Notification_Close}"
+                        Click="OnCloseClick"
+                        PointerPressed="OnClosePointerPressed">
+                    <TextBlock Text="{x:Static theming:LucideIcons.x}"
+                               FontFamily="{DynamicResource ShareX.FontFamily.Icon}"
+                               FontSize="13"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Button>
+
+                </Grid>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

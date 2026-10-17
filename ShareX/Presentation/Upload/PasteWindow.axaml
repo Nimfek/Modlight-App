@@ -1,0 +1,232 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.PasteWindow"
+        x:CompileBindings="False"
+        Title="{x:Static res:Strings.Paste_WindowTitle}"
+        Width="820"
+        Height="640"
+        MinWidth="600"
+        MinHeight="460"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <!-- Every colour here is a token. Fourteen skins times two modes read these, and a
+         literal would look deliberate in exactly one of the twenty-eight. -->
+    <Window.Styles>
+        <Style Selector="TextBlock.pa-hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.pa-label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="TextBlock.pa-problem">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Border.pa-editor">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="TextBlock.pa-ext">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="FontFamily" Value="{DynamicResource ShareX.FontFamily.Monospace}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <Border Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,0,0,1"
+                    Padding="18,12">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <Border Width="40"
+                            Height="40"
+                            CornerRadius="8"
+                            Background="{DynamicResource ShareX.Brush.Background.Panel}">
+                        <!-- The clipboard mark, because that is what the website puts on a
+                             paste. The tile it makes will carry the plain text icon there
+                             (see PasteViewModel), so this is the one place the two differ,
+                             and it is the place where the word "paste" is on screen anyway. -->
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.clipboard_type}"
+                                   FontSize="20"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Static res:Strings.Paste_WindowTitle}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                        <TextBlock Classes="pa-hint" Text="{x:Static res:Strings.Paste_Subtitle}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="18,14" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="5">
+                        <TextBlock Classes="pa-label" Text="{x:Static res:Strings.Paste_TitleLabel}"/>
+                        <TextBox x:Name="TitleBox"
+                                 Text="{Binding Title, Mode=TwoWay}"
+                                 PlaceholderText="{x:Static res:Strings.Paste_TitleWatermark}"
+                                 MaxLength="80"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="5">
+                        <TextBlock Classes="pa-label" Text="{x:Static res:Strings.Paste_LanguageLabel}"/>
+                        <Button x:Name="LanguageButton"
+                                MinWidth="210"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Click="OnLanguageButtonClick">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBlock Text="{Binding LanguageName}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="1"
+                                           Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.chevron_down}"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- A search box over a list rather than a plain drop-down: there
+                             are twenty-eight of these, the same twenty-eight the website
+                             offers, and a drop-down that long is a scroll hunt. Light
+                             dismiss and nothing else, like the one in the Download tab. -->
+                        <Popup x:Name="LanguagePopup"
+                               PlacementTarget="{Binding #LanguageButton}"
+                               Placement="BottomEdgeAlignedLeft"
+                               IsLightDismissEnabled="True"
+                               VerticalOffset="6">
+                            <Border Classes="popup-border popup-surface"
+                                    Classes.open="{Binding #LanguagePopup.IsOpen}"
+                                    Width="300"
+                                    KeyDown="OnPopupKeyDown">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.search}"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0"
+                                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                        <TextBox x:Name="LanguageSearch"
+                                                 Grid.Column="1"
+                                                 PlaceholderText="{x:Static res:Strings.Paste_LanguageSearch}"
+                                                 TextChanged="OnLanguageSearchChanged"
+                                                 KeyDown="OnLanguageSearchKeyDown"/>
+                                    </Grid>
+
+                                    <TextBlock Classes="pa-hint"
+                                               Margin="4,0,0,4"
+                                               IsVisible="{Binding NoLanguageMatches}"
+                                               Text="{x:Static res:Strings.Paste_LanguageNoMatch}"/>
+
+                                    <ListBox x:Name="LanguageList"
+                                             MaxHeight="320"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ItemsSource="{Binding Languages}"
+                                             Tapped="OnLanguageListTapped"
+                                             KeyDown="OnLanguageListKeyDown">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="pa-ext"
+                                                               VerticalAlignment="Center"
+                                                               Text="{Binding Extension}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Classes="pa-editor">
+                    <TextBox x:Name="Editor"
+                             Text="{Binding Content, Mode=TwoWay}"
+                             PlaceholderText="{x:Static res:Strings.Paste_EditorWatermark}"
+                             AcceptsReturn="True"
+                             AcceptsTab="False"
+                             TextWrapping="NoWrap"
+                             VerticalContentAlignment="Top"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             CornerRadius="8"
+                             Padding="12"
+                             FontFamily="{DynamicResource ShareX.FontFamily.Monospace}"
+                             FontSize="13"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             KeyDown="OnEditorKeyDown"/>
+                </Border>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                    <StackPanel Spacing="3">
+                        <TextBlock Classes="pa-hint" Text="{Binding FooterText}"/>
+                        <TextBlock Classes="pa-problem"
+                                   IsVisible="{Binding HasProblem}"
+                                   Text="{Binding Problem}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Classes="pa-hint"
+                               VerticalAlignment="Top"
+                               TextAlignment="Right"
+                               Text="{x:Static res:Strings.Paste_KeyHint}"/>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Row="2"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="compact"
+                            IsCancel="True"
+                            Content="{x:Static res:Strings.MySpace_Cancel}"
+                            Click="OnCancelClick"/>
+                    <Button Classes="compact primary"
+                            Content="{x:Static res:Strings.Paste_Send}"
+                            Click="OnSendClick"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

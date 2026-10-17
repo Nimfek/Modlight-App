@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ForceDesignerDpiUnaware>true</ForceDesignerDpiUnaware>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShareX.Avalonia\ShareX.Avalonia.csproj" />
+    <ProjectReference Include="..\ShareX.HelpersLib\ShareX.HelpersLib.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Localization\Strings.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <Compile Update="Localization\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <!-- Bakes ModlightDefaultHost (Directory.Build.props) into a constant, so which server a
+       build points at is a build setting and never a value written into the source. -->
+  <Target Name="ModlightBuildInfo" BeforeTargets="CoreCompile">
+    <Error Condition="'$(ModlightDefaultHost)' != '' And !$(ModlightDefaultHost.StartsWith('https://'))"
+           Text="ModlightDefaultHost must start with https:// (got '$(ModlightDefaultHost)')." />
+    <Error Condition="'$(ModlightDefaultHost)' != '' And $(ModlightDefaultHost.EndsWith('/'))"
+           Text="ModlightDefaultHost must not end with a slash (got '$(ModlightDefaultHost)')." />
+    <PropertyGroup>
+      <ModlightBuildInfoFile>$(IntermediateOutputPath)ModlightBuildInfo.g.cs</ModlightBuildInfoFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(ModlightBuildInfoFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="// Generated from ModlightDefaultHost. Do not edit.;namespace ShareX.UploadersLib.FileUploaders%3B;internal static class ModlightBuildInfo { public const string DefaultHost = &quot;$(ModlightDefaultHost)&quot;%3B }" />
+    <ItemGroup>
+      <Compile Include="$(ModlightBuildInfoFile)" />
+      <FileWrites Include="$(ModlightBuildInfoFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

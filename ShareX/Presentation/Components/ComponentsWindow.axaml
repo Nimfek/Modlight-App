@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:ShareX"
+        xmlns:res="using:ShareX.Localization"
+        x:Class="ShareX.ComponentsWindow"
+        x:CompileBindings="False"
+        Title="{x:Static res:Strings.Components_Title}"
+        Width="620"
+        Height="640"
+        MinWidth="520"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+
+    <ThemeVariantScope>
+        <Grid Background="{DynamicResource ShareX.Brush.Background.Main}" RowDefinitions="*,Auto">
+            <ScrollViewer Padding="20,18,20,10">
+                <local:ComponentsView DataContext="{Binding}"/>
+            </ScrollViewer>
+
+            <Border Grid.Row="1"
+                    Padding="20,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <Button HorizontalAlignment="Right"
+                        Height="32"
+                        Padding="16,4"
+                        MinWidth="96"
+                        Click="OnCloseClick"
+                        Content="{x:Static res:Strings.Components_Close}"/>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

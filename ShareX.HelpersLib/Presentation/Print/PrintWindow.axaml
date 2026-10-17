@@ -1,0 +1,135 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:localization="using:ShareX.HelpersLib.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.HelpersLib.PrintWindow"
+        x:CompileBindings="False"
+        Title="{x:Static localization:Strings.PrintWindow_Title}"
+        Width="470"
+        SizeToContent="Height"
+        CanResize="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="Border.options-panel">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="CheckBox.print-option">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Margin" Value="0,1"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MinWidth" Value="92"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto">
+        <Border Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                Padding="18,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Width="40"
+                        Height="40"
+                        CornerRadius="6"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}">
+                    <TextBlock Classes="icon"
+                               Text="{x:Static theming:LucideIcons.printer}"
+                               FontSize="20"
+                               Foreground="{DynamicResource ShareX.Brush.Accent}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1"
+                            Spacing="1"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{x:Static localization:Strings.PrintWindow_Heading}"
+                               FontSize="19"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ShareX.Brush.Accent}"/>
+                    <TextBlock Text="{x:Static localization:Strings.PrintWindow_Description}"
+                               FontWeight="Normal"
+                               Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Classes="options-panel"
+                Margin="18,14,18,12">
+            <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="Auto,130,Auto,*"
+                      ColumnSpacing="8"
+                      Margin="0,0,0,3">
+                    <TextBlock x:Name="MarginLabel"
+                               Text="{x:Static localization:Strings.PrintWindow_Margin}"
+                               FontWeight="Normal"
+                               VerticalAlignment="Center"/>
+                    <NumericUpDown x:Name="MarginInput"
+                                   Grid.Column="1"
+                                   Height="34"
+                                   Minimum="0"
+                                   Maximum="1000"
+                                   Increment="1"
+                                   FormatString="0"
+                                   HorizontalContentAlignment="Center"
+                                   ValueChanged="OnMarginChanged"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{x:Static localization:Strings.PrintWindow_Pixels}"
+                               FontWeight="Normal"
+                               Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <CheckBox x:Name="AutoRotateCheckBox"
+                          Classes="print-option"
+                          Content="{x:Static localization:Strings.PrintWindow_Auto_rotate_image}"
+                          IsCheckedChanged="OnAutoRotateChanged"/>
+                <CheckBox x:Name="AutoScaleCheckBox"
+                          Classes="print-option"
+                          Content="{x:Static localization:Strings.PrintWindow_Auto_scale_image}"
+                          IsCheckedChanged="OnAutoScaleChanged"/>
+                <CheckBox x:Name="AllowEnlargeCheckBox"
+                          Classes="print-option"
+                          Margin="24,1,0,1"
+                          Content="{x:Static localization:Strings.PrintWindow_Allow_image_to_enlarge}"
+                          IsCheckedChanged="OnAllowEnlargeChanged"/>
+                <CheckBox x:Name="CenterImageCheckBox"
+                          Classes="print-option"
+                          Margin="24,1,0,1"
+                          Content="{x:Static localization:Strings.PrintWindow_Center_image_position}"
+                          IsCheckedChanged="OnCenterImageChanged"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2"
+              ColumnDefinitions="Auto,*,Auto,Auto"
+              ColumnSpacing="7"
+              Margin="18,0,18,18">
+            <Button x:Name="PreviewButton"
+                    Classes="compact"
+                    Content="{x:Static localization:Strings.PrintWindow_Preview}"
+                    Click="OnPreviewClick"/>
+            <Button x:Name="PrintButton"
+                    Grid.Column="2"
+                    Classes="compact primary"
+                    IsDefault="True"
+                    Click="OnPrintClick"/>
+            <Button x:Name="CancelButton"
+                    Grid.Column="3"
+                    Classes="compact"
+                    IsCancel="True"
+                    Click="OnCancelClick"/>
+        </Grid>
+    </Grid>
+</Window>

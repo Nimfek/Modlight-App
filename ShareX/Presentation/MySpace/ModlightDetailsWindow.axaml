@@ -1,0 +1,214 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        xmlns:local="using:ShareX"
+        x:Class="ShareX.ModlightDetailsWindow"
+        x:CompileBindings="False"
+        Width="540"
+        Height="700"
+        MinWidth="440"
+        MinHeight="480"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="Border.panel">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.link-row">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.link-row /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="7"/>
+        </Style>
+        <Style Selector="Button.link-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Border.chip">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="13,5"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="Auto,*,Auto">
+            <Border Grid.Row="0"
+                    Padding="20,16"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,0,0,1">
+                <StackPanel Spacing="7">
+                    <TextBlock x:Name="FileName"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="Headline" Classes="hint"/>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="20,16,16,18" Spacing="16">
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="section" Text="{x:Static res:Strings.MySpace_DetailsAbout}"/>
+                        <Border Classes="panel">
+                            <ItemsControl x:Name="Facts">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DetailRowViewModel">
+                                        <Grid ColumnDefinitions="150,*" Margin="0,4">
+                                            <TextBlock Classes="hint" Text="{Binding Label}"/>
+                                            <SelectableTextBlock Grid.Column="1"
+                                                                 Text="{Binding Value}"
+                                                                 FontSize="13"
+                                                                 TextWrapping="Wrap"
+                                                                 Foreground="{DynamicResource ShareX.Brush.Text}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="section" Text="{x:Static res:Strings.MySpace_DetailsLinks}"/>
+                        <Border Classes="panel" Padding="4">
+                            <ItemsControl x:Name="Links">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DetailRowViewModel">
+                                        <Button Classes="link-row"
+                                                Tag="{Binding}"
+                                                ToolTip.Tip="{x:Static res:Strings.MySpace_DetailsCopyRow}"
+                                                Click="OnCopyRowClick">
+                                            <Grid ColumnDefinitions="94,*,Auto" ColumnSpacing="8">
+                                                <TextBlock Classes="hint" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Value}"
+                                                           FontSize="12"
+                                                           MaxLines="1"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Classes="icon"
+                                                           Text="{x:Static theming:LucideIcons.copy}"
+                                                           FontSize="13"
+                                                           Opacity="0.55"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="section" Text="{x:Static res:Strings.MySpace_DetailsStats}"/>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Border Classes="panel">
+                                <StackPanel Spacing="2">
+                                    <TextBlock x:Name="Views" FontSize="21" FontWeight="SemiBold"/>
+                                    <TextBlock Classes="hint" Text="{x:Static res:Strings.MySpace_DetailsViews}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Classes="panel">
+                                <StackPanel Spacing="2">
+                                    <TextBlock x:Name="Downloads" FontSize="21" FontWeight="SemiBold"/>
+                                    <TextBlock Classes="hint" Text="{x:Static res:Strings.MySpace_DetailsDownloads}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="section" Text="{x:Static res:Strings.MySpace_LinkSettings}"/>
+                        <Border Classes="panel">
+                            <StackPanel Spacing="8">
+                                <ItemsControl x:Name="Gates">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="local:DetailRowViewModel">
+                                            <Border Classes="chip" Margin="0,0,7,0">
+                                                <TextBlock Text="{Binding Value}" FontSize="12"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="NoGates"
+                                           Classes="hint"
+                                           IsVisible="False"
+                                           Text="{x:Static res:Strings.MySpace_DetailsNoGates}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                    <Button x:Name="CopyLinkButton"
+                            Classes="compact"
+                            Click="OnCopyLinkClick">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.link}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                            <TextBlock Text="{x:Static res:Strings.MySpace_CopyLink}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="OpenButton"
+                            Grid.Column="1"
+                            Classes="compact"
+                            Content="{x:Static res:Strings.MySpace_OpenInBrowser}"
+                            Click="OnOpenClick"/>
+                    <Button Grid.Column="3"
+                            Classes="compact"
+                            MinWidth="96"
+                            IsCancel="True"
+                            IsDefault="True"
+                            Content="{x:Static res:Strings.MySpace_Close}"
+                            Click="OnCloseClick"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

@@ -1,0 +1,1031 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.DownloadView"
+             x:CompileBindings="False">
+
+    <!-- Every style this tab needs is declared here rather than borrowed from
+         MainWindow's. The tab is one element in that file and nothing else, so
+         it has to be able to stand on its own: a class renamed over there must
+         not be able to strip this view of its shape without anyone noticing.
+         Only TextBlock.icon is taken from outside, because it is the Lucide
+         font itself and lives in the application-wide ControlStyles. -->
+    <UserControl.Styles>
+        <!-- The primary action. The only accent-filled surface on the tab; five
+             of them would be a toolbar and none of them would be primary. -->
+        <Style Selector="Button.dl-primary">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.dl-primary /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- Opacity rather than a second accent colour: the theme has one solid
+             accent brush and the other is a gradient, which this design does not
+             use. An accent at 88% over either background reads as pressed-into
+             the surface in both themes without a new value having to be picked. -->
+        <Style Selector="Button.dl-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="Opacity" Value="0.88"/>
+        </Style>
+        <Style Selector="Button.dl-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.78"/>
+        </Style>
+        <Style Selector="Button.dl-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Disabled}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.dl-primary TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="Button.dl-primary:disabled TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- The destination switch. One choice, three answers, and the selected
+             one marked the way the tab strip and the folder chips mark theirs:
+             an accent-tinted surface with an accent icon, never a filled block. -->
+        <Style Selector="Border.dl-segments">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="2"/>
+        </Style>
+        <Style Selector="Button.dl-segment">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="11,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.dl-segment /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.dl-segment:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <Style Selector="Button.dl-segment.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <Style Selector="Button.dl-segment TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+        <Style Selector="Button.dl-segment.selected TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.dl-segment.selected TextBlock.dl-segment-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+
+        <!-- A button that reads as a link until you point at it. -->
+        <Style Selector="Button.dl-quiet">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-quiet /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.dl-quiet TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- A button that reads as one before it is pointed at. The owner reported
+             "Choose folder" and "Sign in to YouTube" as not looking like buttons,
+             and they were right: both were the quiet class above, which is a piece
+             of text until the pointer is already on it. Only the size is set here.
+             The surface, the border, the 140ms fade and the press that scales are
+             the application's own Button style, which is what keeps all fourteen
+             skins dressing these the way they dress every other button. -->
+        <Style Selector="Button.dl-secondary">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-secondary /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-secondary TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <!-- The one item in the top right corner. Same chrome, one step larger,
+             because it is not an action - it is where a state lives. -->
+        <Style Selector="Button.dl-config">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.dl-config TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="Button.dl-config TextBlock.dl-chevron">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- Red with no session, green with one, accent while a window is open on
+             it. Colour is the whole point, so it is never the only thing saying
+             so: the button states it as its tooltip and the panel says it in words
+             with the same dot beside them. -->
+        <Style Selector="Border.dl-dot">
+            <Setter Property="Width" Value="9"/>
+            <Setter Property="Height" Value="9"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.dl-dot.on">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Continue.Border}"/>
+        </Style>
+        <!-- After .on deliberately: while a sign-in window is open both are true,
+             and what is happening now is the one worth showing. -->
+        <Style Selector="Border.dl-dot.busy">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.dl-dot.big">
+            <Setter Property="Width" Value="11"/>
+            <Setter Property="Height" Value="11"/>
+        </Style>
+
+        <Style Selector="Border.dl-sep">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Separator}"/>
+        </Style>
+
+        <!-- One row's buttons: icon only, because six words of labels on every
+             row of a list is a list nobody can scan. -->
+        <Style Selector="Button.dl-action">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-action /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dl-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.dl-action TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="Button.dl-action:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+
+        <!-- Surfaces: the settings strip, one queue row, a stated fact, a state. -->
+        <Style Selector="Border.dl-bar">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="Border.dl-row">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.dl-row:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.dl-badge">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <!-- The badge glyph carries the outcome, so it cannot stay accent-coloured
+             once there is one: a warning triangle in the brand purple reads as a
+             decoration rather than as something having gone wrong. -->
+        <Style Selector="Border.dl-row TextBlock.dl-state-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+        </Style>
+        <Style Selector="Border.dl-row TextBlock.dl-state-icon.done">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Continue.Border}"/>
+        </Style>
+        <Style Selector="Border.dl-row TextBlock.dl-state-icon.failed">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Border.dl-row TextBlock.dl-detail.failed">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+
+        <Style Selector="Border.dl-notice">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.dl-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="22"/>
+            <Setter Property="Width" Value="560"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Type: 12 caption, 13 secondary, 15 the name of the thing, 17 a heading. -->
+        <Style Selector="TextBlock.dl-title">
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.dl-body">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.dl-note">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.dl-label">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.dl-name">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+        <Style Selector="TextBlock.dl-figure">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+        <Style Selector="TextBlock.dl-error">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- The quality dropdown. Sized to this strip rather than to a settings
+             page: the application-wide ComboBox is 40 high, and 40 next to a
+             28-high segmented control makes one row look like two. -->
+        <Style Selector="ComboBox.dl-quality">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- What one queued row was asked for, next to the site it came from.
+             Same weight as the site, because neither is the row's headline. -->
+        <Style Selector="Border.dl-chip">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="7,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.dl-chip TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- The view model hangs on this Grid, not on the UserControl, so that the
+         IsVisible binding MainWindow puts on the control itself still resolves
+         against the window. Setting it one level up would silently break the
+         one attribute the host has. -->
+    <Grid x:Name="Root" RowDefinitions="Auto,Auto,*">
+
+        <StackPanel Grid.Row="0" Margin="18,18,18,0" Spacing="12">
+
+            <!-- The tab's own header. The YouTube sign-in used to be a row inside
+                 the settings strip below, stating itself at all times and offering
+                 to sign in whether or not anybody was signed in already. The owner
+                 asked for one item in this corner instead, holding the state, the
+                 way in and the way out - so the state is a dot, and everything
+                 that can be done about it is one click away under it. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <TextBlock Classes="dl-note"
+                           VerticalAlignment="Center"
+                           Text="{x:Static res:Strings.Download_Hint}"/>
+
+                <Button Grid.Column="1"
+                        x:Name="YouTubeConfigButton"
+                        Classes="dl-config"
+                        Click="OnYouTubeConfigClick"
+                        ToolTip.Tip="{Binding SignInStatus}">
+                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                        <Border Classes="dl-dot"
+                                Classes.on="{Binding SignedIn}"
+                                Classes.busy="{Binding SigningIn}"/>
+                        <TextBlock Text="{x:Static res:Strings.Download_YouTubeConfig}"/>
+                        <TextBlock Classes="icon dl-chevron"
+                                   Text="{x:Static theming:LucideIcons.chevron_down}"
+                                   FontSize="14"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Light dismiss and nothing else: a panel holding three controls
+                     does not need a way to close it of its own, and one would be
+                     the fourth control in a panel about one thing. -->
+                <Popup x:Name="YouTubeConfigPopup"
+                       PlacementTarget="{Binding #YouTubeConfigButton}"
+                       Placement="BottomEdgeAlignedRight"
+                       IsLightDismissEnabled="True"
+                       VerticalOffset="6">
+                    <Border Classes="popup-border popup-surface"
+                            Classes.open="{Binding #YouTubeConfigPopup.IsOpen}"
+                            Width="380"
+                            Padding="16">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                <!-- An account rather than a brand mark:
+                                     the youtube constant compiles but names a
+                                     codepoint the shipped lucide.ttf does not map,
+                                     so it draws nothing at all. Measured against the
+                                     font's own cmap, not guessed. -->
+                                <Border Classes="dl-badge">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.circle_user_round}"
+                                               FontSize="18"
+                                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Classes="dl-label"
+                                               HorizontalAlignment="Left"
+                                               Text="{x:Static res:Strings.Download_SignInPanelTitle}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Border Classes="dl-dot big"
+                                                Classes.on="{Binding SignedIn}"
+                                                Classes.busy="{Binding SigningIn}"/>
+                                        <TextBlock Classes="dl-name" Text="{Binding SignInStatus}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Classes="dl-note" Text="{Binding SignInStateText}"/>
+
+                            <Border Classes="dl-sep"/>
+
+                            <!-- Signed out: the one thing to do, as the one filled
+                                 button. Signed in: it is gone, because an offer to
+                                 do what has already been done is what made the
+                                 owner doubt his sign-in had worked at all. -->
+                            <Button Classes="dl-primary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding ShowSignIn}"
+                                    Click="OnSignInClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.log_in}"
+                                               FontSize="16"/>
+                                    <TextBlock Text="{x:Static res:Strings.Download_SignIn}"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Signed in: the two things still worth doing. The
+                                 first is not a leftover sign-in button - it is the
+                                 remedy our own message names when YouTube refuses a
+                                 download WITH a session, and without it following
+                                 that advice would mean signing out first, which
+                                 reads as throwing something away to get it back. -->
+                            <Grid ColumnDefinitions="*,*"
+                                  ColumnSpacing="8"
+                                  IsVisible="{Binding ShowSignInAgain}">
+                                <Button Classes="dl-secondary"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Click="OnSignInClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.rotate_cw}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_SignInAgain}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1"
+                                        Classes="dl-secondary"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        IsVisible="{Binding ShowSignOut}"
+                                        Click="OnSignOutClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.log_out}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_SignOut}"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- What came of the last attempt, with a way out of the
+                                 one failure that is not the user's to fix from in
+                                 here. -->
+                            <StackPanel Spacing="8" IsVisible="{Binding HasSignInMessage}">
+                                <TextBlock Classes="dl-note" Text="{Binding SignInMessage}"/>
+                                <Button Classes="dl-secondary"
+                                        HorizontalAlignment="Left"
+                                        IsVisible="{Binding ShowBrowserMissing}"
+                                        Click="OnSignInRuntimeClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.external_link}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_ToolInstall}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Where the session is kept and what deletes it, in the
+                                 panel rather than in a tooltip: this is a live login
+                                 to a Google account, and where it lives is not a
+                                 detail to hide behind a hover. -->
+                            <TextBlock Classes="dl-note"
+                                       Opacity="0.75"
+                                       Text="{x:Static res:Strings.Download_SignInNote}"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox x:Name="UrlBox"
+                         Height="38"
+                         CornerRadius="8"
+                         VerticalContentAlignment="Center"
+                         PlaceholderText="{x:Static res:Strings.Download_UrlWatermark}"
+                         Text="{Binding UrlText, Mode=TwoWay}"
+                         KeyDown="OnUrlKeyDown"/>
+                <Button Grid.Column="1"
+                        Classes="dl-primary"
+                        IsEnabled="{Binding ToolReady}"
+                        Click="OnDownloadClick">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.download}" FontSize="16"/>
+                        <TextBlock Text="{x:Static res:Strings.Download_Start}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <TextBlock Classes="dl-error"
+                       IsVisible="{Binding HasUrlError}"
+                       Text="{Binding UrlError}"/>
+
+            <!-- yt-dlp is missing. Stated where the button that needs it is, with
+                 the two things a person can do about it, rather than as a failed
+                 download later that names no cause. -->
+            <Border Classes="dl-notice" IsVisible="{Binding ToolMissing}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <TextBlock Classes="icon"
+                               Text="{x:Static theming:LucideIcons.triangle_alert}"
+                               FontSize="18"
+                               VerticalAlignment="Top"
+                               Margin="0,2,0,0"
+                               Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                    <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_ToolMissingTitle}"/>
+                        <TextBlock Classes="dl-note" Text="{x:Static res:Strings.Download_ToolMissingBody}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="dl-secondary" Click="OnToolInstallClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.external_link}" FontSize="14"/>
+                                    <TextBlock Text="{x:Static res:Strings.Download_ToolInstall}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="dl-secondary" Click="OnToolRecheckClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.refresh_cw}" FontSize="14"/>
+                                    <TextBlock Text="{x:Static res:Strings.Download_ToolRecheck}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ffmpeg is missing. NOT the same class of problem as yt-dlp being
+                 missing, and it is stated here rather than left to be discovered:
+                 without a merger the only reachable YouTube format is one
+                 pre-muxed 360p stream, so every quality in the picker above
+                 quietly becomes 360p. That was the reported bug, and a download
+                 that succeeds at the wrong quality tells nobody anything. -->
+            <Border Classes="dl-notice" IsVisible="{Binding ShowFFmpegNotice}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <TextBlock Classes="icon"
+                               Text="{x:Static theming:LucideIcons.triangle_alert}"
+                               FontSize="18"
+                               VerticalAlignment="Top"
+                               Margin="0,2,0,0"
+                               Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+                    <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_FFmpegMissingTitle}"/>
+                        <TextBlock Classes="dl-note" Text="{Binding FFmpegNoticeBody}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="dl-secondary" Click="OnFFmpegInstallClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.download}" FontSize="14"/>
+                                    <TextBlock Text="{x:Static res:Strings.Download_FFmpegInstall}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="dl-secondary" Click="OnToolRecheckClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.refresh_cw}" FontSize="14"/>
+                                    <TextBlock Text="{x:Static res:Strings.Download_ToolRecheck}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- One destination for everything queued after it, which is what the
+                 owner asked for. Above the queue and not inside a row, so that it
+                 reads as the rule it is rather than as a property of one item. -->
+            <Border Classes="dl-bar">
+                <StackPanel Spacing="10">
+                    <!-- Video or sound, and how good. Two controls rather than one
+                         list with "audio only" buried at the bottom of it: the
+                         owner asked for the choice to be a choice, and a person
+                         who wants an mp3 is not asking for a worse video.
+
+                         Both are settings for the NEXT download and not properties
+                         of a queued row - the same shape as the destination below,
+                         for the same reason: the answer is the same every time
+                         somebody gives it. What a row was queued under stays on
+                         the row, in the chip beside its site. -->
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="12">
+                        <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_FormatLabel}"/>
+                        <Border Grid.Column="1" Classes="dl-segments">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <Button Classes="dl-segment"
+                                        Classes.selected="{Binding IsVideoKind}"
+                                        Tag="{x:Static local:DownloadMediaKind.Video}"
+                                        Click="OnMediaKindClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon dl-segment-icon"
+                                                   Text="{x:Static theming:LucideIcons.film}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_FormatVideo}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="dl-segment"
+                                        Classes.selected="{Binding IsAudioKind}"
+                                        Tag="{x:Static local:DownloadMediaKind.Audio}"
+                                        Click="OnMediaKindClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon dl-segment-icon"
+                                                   Text="{x:Static theming:LucideIcons.music}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_FormatAudio}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Grid.Column="2" Classes="dl-label" Text="{Binding QualityLabel}"/>
+
+                        <!-- Two pickers in one cell, one visible at a time, rather
+                             than one picker whose list is swapped. Swapping a
+                             ComboBox's ItemsSource clears its selection, and the
+                             box then stayed BLANK for the rest of the session -
+                             see DownloadViewModel.VideoQualityOptions for the
+                             measurement. A hidden control is not measured, so the
+                             Auto column still sizes to whichever one is on screen.
+
+                             The tooltip carries the yt-dlp arguments the selected
+                             entry maps to. The owner asked to be told what each
+                             one means, and the sentence beside the control is an
+                             interpretation while this is the thing itself. -->
+                        <ComboBox Grid.Column="3"
+                                  Classes="dl-quality"
+                                  IsVisible="{Binding IsVideoKind}"
+                                  ItemsSource="{Binding VideoQualityOptions}"
+                                  SelectedItem="{Binding SelectedVideoQuality, Mode=TwoWay}"
+                                  ToolTip.Tip="{Binding FormatHint}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="local:DownloadFormatOption">
+                                    <TextBlock Text="{Binding Label}" FontSize="13"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <ComboBox Grid.Column="3"
+                                  Classes="dl-quality"
+                                  IsVisible="{Binding IsAudioKind}"
+                                  ItemsSource="{Binding AudioFormatOptions}"
+                                  SelectedItem="{Binding SelectedAudioFormat, Mode=TwoWay}"
+                                  ToolTip.Tip="{Binding FormatHint}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="local:DownloadFormatOption">
+                                    <TextBlock Text="{Binding Label}" FontSize="13"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Grid.Column="4"
+                                   Classes="dl-note"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1"
+                                   Text="{Binding FormatNote}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding FormatNote}"
+                                           FontWeight="Normal"
+                                           TextWrapping="WrapWithOverflow"/>
+                            </ToolTip.Tip>
+                        </TextBlock>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
+                        <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_DestinationLabel}"/>
+                        <Border Grid.Column="1" Classes="dl-segments">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <Button Classes="dl-segment"
+                                        Classes.selected="{Binding IsDestinationDisk}"
+                                        Tag="{x:Static local:DownloadDestination.Disk}"
+                                        Click="OnDestinationClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon dl-segment-icon"
+                                                   Text="{x:Static theming:LucideIcons.hard_drive}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_DestinationDisk}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="dl-segment"
+                                        Classes.selected="{Binding IsDestinationModlight}"
+                                        Tag="{x:Static local:DownloadDestination.Modlight}"
+                                        Click="OnDestinationClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon dl-segment-icon"
+                                                   Text="{x:Static theming:LucideIcons.cloud_upload}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_DestinationModlight}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="dl-segment"
+                                        Classes.selected="{Binding IsDestinationBoth}"
+                                        Tag="{x:Static local:DownloadDestination.Both}"
+                                        Click="OnDestinationClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <TextBlock Classes="icon dl-segment-icon"
+                                                   Text="{x:Static theming:LucideIcons.copy}"
+                                                   FontSize="14"/>
+                                        <TextBlock Text="{x:Static res:Strings.Download_DestinationBoth}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Grid.Column="2"
+                                   Classes="dl-note"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1"
+                                   Text="{Binding DestinationNote}"/>
+                    </Grid>
+
+                    <!-- Only when a copy is being kept. A Modlight-only download's
+                         file is a temporary one this tab clears up itself, so
+                         asking where to put it would be asking about something the
+                         person is not getting. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                          ColumnSpacing="8"
+                          IsVisible="{Binding ShowFolderRow}">
+                        <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_FolderLabel}"/>
+                        <TextBlock Grid.Column="1"
+                                   Classes="dl-note"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1"
+                                   Text="{Binding FolderText}"/>
+                        <Button Grid.Column="2"
+                                Classes="dl-secondary"
+                                Click="OnChooseFolderClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.folder}"
+                                           FontSize="14"/>
+                                <TextBlock Text="{x:Static res:Strings.Download_FolderChoose}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="3"
+                                Classes="dl-secondary"
+                                IsVisible="{Binding HasFixedFolder}"
+                                Click="OnForgetFolderClick"
+                                Content="{x:Static res:Strings.Download_FolderForget}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <Grid Grid.Row="1"
+              Margin="18,16,18,8"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="12"
+              IsVisible="{Binding HasItems}">
+            <TextBlock Classes="dl-label" Text="{x:Static res:Strings.Download_QueueTitle}"/>
+            <Button Grid.Column="2"
+                    Classes="dl-quiet"
+                    IsVisible="{Binding HasFinishedItems}"
+                    Click="OnClearFinishedClick"
+                    Content="{x:Static res:Strings.Download_ClearFinished}"/>
+        </Grid>
+
+        <Panel Grid.Row="2">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding HasItems}">
+                <ItemsControl Margin="18,0,10,18" ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="local:DownloadItemViewModel">
+                            <Border Classes="dl-row">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Border Classes="dl-badge">
+                                        <TextBlock Classes="icon dl-state-icon"
+                                                   Classes.done="{Binding IsDone}"
+                                                   Classes.failed="{Binding IsFailed}"
+                                                   Text="{Binding Icon}"
+                                                   FontSize="18"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <TextBlock Classes="dl-name" Text="{Binding Title}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{Binding Url}"
+                                                               FontWeight="Normal"
+                                                               TextWrapping="WrapWithOverflow"/>
+                                                </ToolTip.Tip>
+                                            </TextBlock>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <!-- What this row was queued under, and
+                                                     then what yt-dlp actually picked. The
+                                                     picker above is a setting for the next
+                                                     download, so once a queue has built up
+                                                     this chip is the only surviving record
+                                                     of what each row asked for. -->
+                                                <Border Classes="dl-chip">
+                                                    <TextBlock Text="{Binding FormatText}"/>
+                                                </Border>
+                                                <TextBlock Classes="dl-figure" Text="{Binding Source}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Only when what is coming is not what was
+                                             asked for. It appears before the first byte,
+                                             because "there is no 1080p version of this"
+                                             is worth knowing while cancelling is still
+                                             worth doing. -->
+                                        <TextBlock Classes="dl-note"
+                                                   IsVisible="{Binding HasNote}"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxLines="1"
+                                                   Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"
+                                                   Text="{Binding Note}">
+                                            <ToolTip.Tip>
+                                                <TextBlock Text="{Binding Note}"
+                                                           FontWeight="Normal"
+                                                           TextWrapping="WrapWithOverflow"/>
+                                            </ToolTip.Tip>
+                                        </TextBlock>
+
+                                        <ProgressBar Height="4"
+                                                     MinHeight="0"
+                                                     MinWidth="0"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     IsVisible="{Binding ShowProgress}"
+                                                     IsIndeterminate="{Binding IsIndeterminate}"
+                                                     Value="{Binding Percent}"/>
+
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <TextBlock Classes="dl-note dl-detail"
+                                                       Classes.failed="{Binding IsFailed}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxLines="1"
+                                                       Text="{Binding Detail}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{Binding Detail}"
+                                                               FontWeight="Normal"
+                                                               TextWrapping="WrapWithOverflow"/>
+                                                </ToolTip.Tip>
+                                            </TextBlock>
+                                            <!-- Fixed widths so a queue of rows does not
+                                                 jitter sideways every time a speed gains
+                                                 or loses a digit. -->
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="12"
+                                                        IsVisible="{Binding HasNumbers}">
+                                                <TextBlock Classes="dl-figure" Text="{Binding SizeText}"/>
+                                                <TextBlock Classes="dl-figure" MinWidth="74" Text="{Binding SpeedText}"/>
+                                                <TextBlock Classes="dl-figure" MinWidth="62" Text="{Binding EtaText}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Spacing="2"
+                                                VerticalAlignment="Center">
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanPause}"
+                                                Tag="{Binding}"
+                                                Click="OnPauseClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_Pause}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.circle_pause}"
+                                                       FontSize="17"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanResume}"
+                                                Tag="{Binding}"
+                                                Click="OnResumeClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_Resume}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.circle_play}"
+                                                       FontSize="17"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <!-- Only on a row that failed for want of a
+                                             signed-in account, which is a fact the run
+                                             worked out and handed over - not something
+                                             guessed from the wording of the message.
+
+                                             It opens the panel in the corner rather
+                                             than the browser window directly: that
+                                             panel is where the sign-in lives now, and
+                                             a second door onto the same window would
+                                             be a second place to learn this from. -->
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanSignIn}"
+                                                Click="OnRowSignInClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_YouTubeConfig}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.log_in}"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <!-- Only where a newer downloader could actually
+                                             change the outcome: yt-dlp called the failure
+                                             a fault in itself AND the copy here is not
+                                             already the newest build published. Both facts
+                                             are worked out by the run - one from what
+                                             yt-dlp printed, the other from two version
+                                             numbers - and never guessed from the wording,
+                                             which is how this button once ended up beside
+                                             a deleted TikTok video on the newest yt-dlp in
+                                             existence. See YtDlpErrorReader.OffersUpdate.
+                                             It fetches a newer downloader and puts this
+                                             same address back in the queue. -->
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanUpdateTool}"
+                                                Tag="{Binding}"
+                                                Click="OnUpdateToolClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_UpdateAndRetry}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.circle_arrow_up}"
+                                                       FontSize="17"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanRetry}"
+                                                Tag="{Binding}"
+                                                Click="OnRetryClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_Retry}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.rotate_cw}"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanReveal}"
+                                                Tag="{Binding}"
+                                                Click="OnRevealClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_ShowInFolder}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.folder_open}"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding CanCancel}"
+                                                Tag="{Binding}"
+                                                Click="OnCancelClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_Cancel}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.x}"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Button Classes="dl-action"
+                                                IsVisible="{Binding IsFinished}"
+                                                Tag="{Binding}"
+                                                Click="OnRemoveClick"
+                                                ToolTip.Tip="{x:Static res:Strings.Download_Remove}">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.trash_2}"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border Classes="dl-card" IsVisible="{Binding ShowEmptyPanel}">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                        <Border Classes="dl-badge" Width="42" Height="42">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.download}"
+                                       FontSize="20"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Classes="dl-title" Text="{x:Static res:Strings.Download_EmptyTitle}"/>
+                            <TextBlock Classes="dl-body" Text="{x:Static res:Strings.Download_EmptyBody}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="dl-note"
+                               IsVisible="{Binding ToolReady}"
+                               Opacity="0.75"
+                               Text="{Binding ToolPath}"/>
+                </StackPanel>
+            </Border>
+        </Panel>
+    </Grid>
+</UserControl>

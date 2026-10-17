@@ -1,0 +1,446 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:ShareX"
+        xmlns:res="using:ShareX.Localization"
+        xmlns:controls="using:ShareX.AvaloniaUI.Controls"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        mc:Ignorable="d"
+        d:DesignWidth="1100"
+        d:DesignHeight="760"
+        x:Class="ShareX.TaskSettingsView">
+
+    <UserControl.Styles>
+        <Style Selector="Grid.page-title">
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style Selector="TextBlock.page-title-text">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.page-title-icon">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,1,0,3"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,4"/>
+        </Style>
+        <!-- Background.Popup, which is the CARD colour, not Background.Panel, which is the
+             SIDE PANEL's. The two are the same shade in twelve of the fourteen skins and
+             the difference never showed; deco and riso in light mode give the panel a
+             saturated navy, so every card on every settings page was navy with the page's
+             own dark text on it - 1.22:1 measured off a screenshot. -->
+        <Style Selector="Border.section-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Popup}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector="Border.override-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector="CheckBox.setting">
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+        <Style Selector="ComboBox.form-control">
+            <Setter Property="MinWidth" Value="250"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="TextBox.form-control">
+            <Setter Property="MinWidth" Value="300"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="NumericUpDown.form-control">
+            <Setter Property="Width" Value="130"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="0,4"/>
+        </Style>
+        <Style Selector="ListBox.settings-list">
+            <Setter Property="MinHeight" Value="150"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Main}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="ListBox.action-list > ListBoxItem">
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Grid.action-list-item">
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Margin" Value="6,1"/>
+        </Style>
+        <Style Selector="Grid.action-list-item TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="CheckBox.action-list-toggle">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.action-list-path">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+        <Style Selector="TextBlock.action-editor-label">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ThemeVariantScope>
+        <Grid Background="{DynamicResource ShareX.Brush.Background.Main}">
+            <Grid x:Name="SettingsPages"/>
+
+            <Border x:Name="ActionEditorOverlay"
+                    ZIndex="100"
+                    IsVisible="False"
+                    Background="{DynamicResource ShareX.Brush.Overlay.Modal}">
+                <Border Width="640"
+                        MaxHeight="590"
+                        Padding="16"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.zap}"
+                                       FontSize="21"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Spacing="1">
+                                <TextBlock x:Name="ActionEditorTitle"
+                                           Text="{x:Static res:Strings.TaskSettingsWindow_AddAction}"
+                                           FontSize="19"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_RunAnExternalProgramAsPartOfACaptureWorkflow}"
+                                           Classes="hint"/>
+                            </StackPanel>
+                            <Button Grid.Column="2"
+                                    Classes="icon-button"
+                                    ToolTip.Tip="{x:Static res:Strings.TaskSettingsWindow_Close}"
+                                    Click="OnCancelActionEditorClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.x}"
+                                           FontSize="16"/>
+                            </Button>
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="8" Margin="0,0,4,0">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label" Text="{x:Static res:Strings.TaskSettingsWindow_Name}"/>
+                                    <TextBox x:Name="ActionNameBox" Classes="form-control"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label" Text="{x:Static res:Strings.TaskSettingsWindow_FilePath}"/>
+                                    <Grid ColumnDefinitions="*,32" ColumnSpacing="6">
+                                        <TextBox x:Name="ActionPathBox" Classes="form-control"/>
+                                        <Button Grid.Column="1"
+                                                Width="32"
+                                                Height="32"
+                                                Padding="0"
+                                                ToolTip.Tip="{x:Static res:Strings.TaskSettingsWindow_BrowseWithEllipsis}"
+                                                Click="OnBrowseActionPathClick">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.folder}"
+                                                       FontSize="15"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label" Text="{x:Static res:Strings.TaskSettingsWindow_Arguments}"/>
+                                    <TextBox x:Name="ActionArgumentsBox" Classes="form-control"/>
+                                    <TextBlock Classes="hint" Text="{x:Static res:Strings.TaskSettingsWindow_RightClickToInsertAnInputOrOutputFileToken}"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label"
+                                               Text="{x:Static res:Strings.TaskSettingsWindow_OutputFileNameExtensionEmptyUsesTheSameFileName}"/>
+                                    <TextBox x:Name="ActionOutputExtensionBox"
+                                             Classes="form-control"
+                                             TextChanged="OnActionOutputExtensionTextChanged"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label"
+                                               Text="{x:Static res:Strings.TaskSettingsWindow_ExtensionFilterExampleJpgPngMp4}"/>
+                                    <TextBox x:Name="ActionExtensionsBox" Classes="form-control"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="18">
+                                    <CheckBox x:Name="ActionHiddenWindowCheckBox"
+                                              Classes="setting"
+                                              Content="{x:Static res:Strings.TaskSettingsWindow_HiddenWindow}"/>
+                                    <CheckBox x:Name="ActionDeleteInputFileCheckBox"
+                                              Classes="setting"
+                                              Content="{x:Static res:Strings.TaskSettingsWindow_DeleteInputFile}"/>
+                                </StackPanel>
+
+                                <TextBlock x:Name="ActionEditorErrorText"
+                                           IsVisible="False"
+                                           Foreground="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"
+                                           FontWeight="Normal"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <StackPanel Grid.Row="2"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    HorizontalAlignment="Right">
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Save}"
+                                    Click="OnSaveActionEditorClick"/>
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Cancel}"
+                                    Click="OnCancelActionEditorClick"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+
+            <Border x:Name="WatchFolderEditorOverlay"
+                    ZIndex="100"
+                    IsVisible="False"
+                    Background="{DynamicResource ShareX.Brush.Overlay.Modal}">
+                <Border Width="600"
+                        MaxHeight="480"
+                        Padding="16"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.folder_search}"
+                                       FontSize="21"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Spacing="1">
+                                <TextBlock x:Name="WatchFolderEditorTitle"
+                                           Text="{x:Static res:Strings.TaskSettingsWindow_AddWatchFolder}"
+                                           FontSize="19"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_UploadFilesWhenTheyAreCreatedInThisFolder}"
+                                           Classes="hint"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="8" Margin="0,0,4,0">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label" Text="{x:Static res:Strings.TaskSettingsWindow_FolderPath}"/>
+                                    <Grid ColumnDefinitions="*,32" ColumnSpacing="6">
+                                        <TextBox x:Name="WatchFolderPathBox" Classes="form-control"/>
+                                        <Button Grid.Column="1"
+                                                Width="32"
+                                                Height="32"
+                                                Padding="0"
+                                                ToolTip.Tip="{x:Static res:Strings.TaskSettingsWindow_BrowseWithEllipsis}"
+                                                Click="OnBrowseWatchFolderClick">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.folder}"
+                                                       FontSize="15"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="action-editor-label" Text="{x:Static res:Strings.TaskSettingsWindow_Filter}"/>
+                                    <TextBox x:Name="WatchFolderFilterBox" Classes="form-control"/>
+                                    <TextBlock Classes="hint" Text="{x:Static res:Strings.TaskSettingsWindow_ExamplePng}"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="3">
+                                    <CheckBox x:Name="WatchFolderIncludeSubdirectoriesCheckBox"
+                                              Classes="setting"
+                                              Content="{x:Static res:Strings.TaskSettingsWindow_IncludeSubdirectories}"/>
+                                    <CheckBox x:Name="WatchFolderMoveToScreenshotsCheckBox"
+                                              Classes="setting"
+                                              Content="{x:Static res:Strings.TaskSettingsWindow_MoveFileToScreenshotsFolder}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <StackPanel Grid.Row="2"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    HorizontalAlignment="Right">
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Save}"
+                                    Click="OnSaveWatchFolderEditorClick"/>
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Cancel}"
+                                    Click="OnCancelWatchFolderEditorClick"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+
+            <Border x:Name="NotificationButtonsEditorOverlay"
+                    ZIndex="100"
+                    IsVisible="False"
+                    Background="{DynamicResource ShareX.Brush.Overlay.Modal}">
+                <Border Width="600"
+                        Height="520"
+                        Padding="16"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.bell}"
+                                       FontSize="21"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Spacing="1">
+                                <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_NotificationButtons}"
+                                           FontSize="19"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_ChooseTheActionsShownAtTheBottomOfAfterCaptureNotifications}"
+                                           Classes="hint"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1"
+                                    Orientation="Horizontal"
+                                    Spacing="6">
+                            <Button x:Name="NotificationButtonAddButton"
+                                    Classes="compact"
+                                    Click="OnAddNotificationButtonClick">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.plus}"/>
+                                    <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_AddWithEllipsis}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NotificationButtonRemoveButton"
+                                    Classes="compact"
+                                    Click="OnRemoveNotificationButtonClick">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.trash_2}"/>
+                                    <TextBlock Text="{x:Static res:Strings.TaskSettingsWindow_Remove}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NotificationButtonMoveUpButton"
+                                    Width="32"
+                                    Height="32"
+                                    Padding="0"
+                                    ToolTip.Tip="{x:Static res:Strings.TaskSettingsWindow_MoveUp}"
+                                    Click="OnMoveNotificationButtonUpClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.chevron_up}"
+                                           FontSize="16"/>
+                            </Button>
+                            <Button x:Name="NotificationButtonMoveDownButton"
+                                    Width="32"
+                                    Height="32"
+                                    Padding="0"
+                                    ToolTip.Tip="{x:Static res:Strings.TaskSettingsWindow_MoveDown}"
+                                    Click="OnMoveNotificationButtonDownClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.chevron_down}"
+                                           FontSize="16"/>
+                            </Button>
+                        </StackPanel>
+
+                        <Grid Grid.Row="2">
+                            <ListBox x:Name="NotificationButtonList"
+                                     Classes="settings-list action-list"
+                                     SelectionChanged="OnNotificationButtonSelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:NotificationActionItem">
+                                        <Grid Classes="action-list-item"
+                                              ColumnDefinitions="26,*"
+                                              ColumnSpacing="7">
+                                            <TextBlock Classes="icon"
+                                                       Text="{Binding Icon}"
+                                                       FontSize="16"
+                                                       Foreground="{DynamicResource ShareX.Brush.Accent}"
+                                                       TextAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Title}"
+                                                       FontWeight="Normal"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock x:Name="NotificationButtonsEmptyText"
+                                       Text="{x:Static res:Strings.TaskSettingsWindow_NoButtonsConfiguredTheNotificationToolbarWillBeHidden}"
+                                       Classes="hint"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"/>
+                        </Grid>
+
+                        <StackPanel Grid.Row="3"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    HorizontalAlignment="Right">
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Height="36"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Save}"
+                                    Click="OnSaveNotificationButtonsClick"/>
+                            <Button Classes="compact"
+                                    MinWidth="84"
+                                    Height="36"
+                                    Content="{x:Static res:Strings.TaskSettingsWindow_Cancel}"
+                                    Click="OnCancelNotificationButtonsClick"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</UserControl>

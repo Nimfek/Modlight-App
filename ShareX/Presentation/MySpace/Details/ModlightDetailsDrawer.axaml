@@ -1,0 +1,640 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.ModlightDetailsDrawer"
+             x:CompileBindings="False"
+             HorizontalAlignment="Right"
+             IsVisible="{Binding IsPresent}"
+             KeyDown="OnKeyDown">
+
+    <!-- The panel's details drawer, in a window.
+
+         Everything it needs is declared here rather than borrowed from the main
+         window's set. The `dd-` prefix guarantees no collision in either direction,
+         which matters more than usual: that window is 1800 lines being edited by
+         other hands, and a class name silently inherited from a neighbour is a
+         dependency nobody can see. Every colour is a token, so all fourteen skins
+         carry this control without it being touched. -->
+    <UserControl.Styles>
+        <!-- The drawer itself. It sits ON TOP of the grid rather than beside it, so
+             opening it costs the listing no layout pass at all - and what moves is a
+             RenderTransform, which the compositor applies after layout, so no frame of
+             the travel measures anything either.
+
+             The clipping host around it is what makes a translate look like a slide:
+             without one the drawer would simply be visible sitting off to the right of
+             the window's own edge for the length of the animation. -->
+        <Style Selector="Border.dd-shell">
+            <Setter Property="RenderTransform" Value="translateX(404px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.dd-shell.open">
+            <Setter Property="RenderTransform" Value="none"/>
+        </Style>
+        <!-- "Show animations in Windows" is off. An EMPTY transition collection rather
+             than a null one: it is unambiguous to the parser and it means the class can
+             be taken off again without leaving the control transitionless. -->
+        <Style Selector="Border.dd-shell.instant">
+            <Setter Property="Transitions">
+                <Transitions/>
+            </Setter>
+        </Style>
+
+        <Style Selector="TextBlock.dd-title">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- A MIME type and a code are strings a person compares character by
+             character, so they get the fixed-width face. Prose never does. -->
+        <Style Selector="SelectableTextBlock.dd-mono">
+            <Setter Property="FontFamily" Value="{DynamicResource ShareX.FontFamily.Monospace}"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style Selector="TextBlock.dd-hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- The heading over a section. Small, spaced and quiet, exactly as the panel
+             sets its own: it labels a group rather than competing with it. -->
+        <Style Selector="TextBlock.dd-section">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <Style Selector="Border.dd-rule">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="16,4"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Separator}"/>
+        </Style>
+
+        <Style Selector="Border.dd-preview">
+            <Setter Property="Height" Value="212"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- The tile that stands in for a file with no picture: the kind's own glyph on
+             a soft square, which is what the card behind it does too. -->
+        <Style Selector="Border.dd-kind">
+            <Setter Property="Width" Value="54"/>
+            <Setter Property="Height" Value="54"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Border.dd-badge">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="7,2"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.dd-badge TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <!-- One restriction standing in front of the link. -->
+        <Style Selector="Border.dd-gate">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- A square button carrying nothing but a glyph: the two arrows, the close,
+             and the two actions beside "Copy link". -->
+        <Style Selector="Button.dd-icon">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.dd-icon /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.dd-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.dd-icon:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style Selector="Button.dd-action">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="38"/>
+            <Setter Property="Padding" Value="11,0"/>
+        </Style>
+
+        <Style Selector="Button.dd-small">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- One shape of link. The whole row is the button, because a copy target the
+             width of a glyph is a copy target people miss. -->
+        <Style Selector="Button.dd-link">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.dd-link /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+
+        <!-- The way out. Its colour is the one the app already uses for a cancelled
+             task, so "this one is destructive" survives a skin nobody has seen yet. -->
+        <Style Selector="Button.dd-danger">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Foreground}"/>
+        </Style>
+        <Style Selector="Button.dd-danger TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Foreground}"/>
+        </Style>
+        <Style Selector="Button.dd-danger /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Button.dd-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+        <Style Selector="Button.dd-danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+
+        <!-- The two counters. A figure with its word underneath, on its own surface,
+             because a view count set in a run of prose is a number nobody finds. -->
+        <Style Selector="Border.dd-stat">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style Selector="Border.dd-danger-card">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Fixed width and clipping. The Border inside travels its own width to the right
+         when closed, and this host is what hides it while it is out there. -->
+    <Panel Width="404" ClipToBounds="True">
+        <Border Classes="dd-shell"
+                Classes.open="{Binding IsOpen}"
+                Classes.instant="{Binding IsInstant}"
+                Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                BorderThickness="1,0,0,0">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Who this is, and the two arrows that walk the listing without
+                     leaving the drawer. -->
+                <Border Grid.Row="0"
+                        Padding="14,12,10,13"
+                        Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                        BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                        BorderThickness="0,0,0,1">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                            <!-- Every button in this header carries a glyph and nothing
+                                 else, and a glyph is not a name: to a screen reader, and
+                                 to anything walking the tree, an unnamed button cannot be
+                                 told from the one beside it. The panel labels the same
+                                 five with aria-label, so they are labelled here too - with
+                                 the strings the tooltips already use, so there is never a
+                                 second wording to keep in step with the first. -->
+                            <Button Classes="dd-icon"
+                                    IsEnabled="{Binding CanPrevious}"
+                                    ToolTip.Tip="{x:Static res:Strings.MySpace_DetailsPrevious}"
+                                    AutomationProperties.Name="{x:Static res:Strings.MySpace_DetailsPrevious}"
+                                    Click="OnPreviousClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.chevron_left}"
+                                           FontSize="15"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Classes="dd-icon"
+                                    IsEnabled="{Binding CanNext}"
+                                    ToolTip.Tip="{x:Static res:Strings.MySpace_DetailsNext}"
+                                    AutomationProperties.Name="{x:Static res:Strings.MySpace_DetailsNext}"
+                                    Click="OnNextClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.chevron_right}"
+                                           FontSize="15"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                            <TextBlock Grid.Column="2"
+                                       Classes="dd-hint"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding PositionText}"/>
+                            <Button Grid.Column="3"
+                                    Classes="dd-icon"
+                                    ToolTip.Tip="{x:Static res:Strings.MySpace_Close}"
+                                    AutomationProperties.Name="{x:Static res:Strings.MySpace_Close}"
+                                    Click="OnCloseClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.x}"
+                                           FontSize="15"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+
+                        <TextBlock Classes="dd-title" Text="{Binding Name}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding Name}"
+                                           FontWeight="Normal"
+                                           TextWrapping="WrapWithOverflow"/>
+                            </ToolTip.Tip>
+                        </TextBlock>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Classes="dd-badge" IsVisible="{Binding HasBadge}">
+                                <TextBlock Text="{Binding TypeBadge}"/>
+                            </Border>
+                            <TextBlock Classes="dd-hint" VerticalAlignment="Center" Text="{Binding SizeText}"/>
+                            <TextBlock Classes="dd-hint"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding HasDimensions}"
+                                       Text="{Binding DimensionsText}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,0,18">
+                        <!-- The picture. Uniform, never cropped: this is the one place
+                             the whole file is meant to be seen, and a preview that fills
+                             its box by cutting the edges off is the card's job, not
+                             this one's. -->
+                        <Border Classes="dd-preview" Margin="16,16,16,0">
+                            <Panel>
+                                <Image Source="{Binding Preview}"
+                                       Stretch="Uniform"
+                                       IsVisible="{Binding HasPreview}"/>
+                                <StackPanel Spacing="9"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsVisible="{Binding HasNoPreview}">
+                                    <Border Classes="dd-kind">
+                                        <TextBlock Classes="icon"
+                                                   Text="{Binding PlaceholderIcon}"
+                                                   FontSize="22"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                    </Border>
+                                    <TextBlock Classes="dd-hint"
+                                               HorizontalAlignment="Center"
+                                               Text="{Binding TypeBadge}"/>
+                                </StackPanel>
+                            </Panel>
+                        </Border>
+
+                        <!-- What people came for, in the order they want it: the link on
+                             the clipboard, the page in a browser, the file on disk. -->
+                        <Grid Margin="16,12,16,4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <Button Classes="active dd-action"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsEnabled="{Binding CanCopy}"
+                                    Click="OnCopyLinkClick">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Classes="icon"
+                                               Text="{Binding PrimaryCopyIcon}"
+                                               FontSize="14"/>
+                                    <TextBlock Text="{x:Static res:Strings.MySpace_CopyLink}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Classes="dd-action"
+                                    IsEnabled="{Binding CanOpen}"
+                                    ToolTip.Tip="{x:Static res:Strings.MySpace_OpenInBrowser}"
+                                    AutomationProperties.Name="{x:Static res:Strings.MySpace_OpenInBrowser}"
+                                    Click="OnOpenClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.external_link}"
+                                           FontSize="15"/>
+                            </Button>
+                            <Button Grid.Column="2"
+                                    Classes="dd-action"
+                                    IsEnabled="{Binding CanDownload}"
+                                    ToolTip.Tip="{x:Static res:Strings.MySpace_Download}"
+                                    AutomationProperties.Name="{x:Static res:Strings.MySpace_Download}"
+                                    Click="OnDownloadClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.download}"
+                                           FontSize="15"/>
+                            </Button>
+                        </Grid>
+
+                        <Border Classes="dd-rule" Margin="16,12,16,4"/>
+
+                        <!-- About: what this file IS. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="7">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_DetailsAbout}"/>
+                            <ItemsControl ItemsSource="{Binding Facts}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DetailsFact">
+                                        <Grid ColumnDefinitions="94,*" ColumnSpacing="12" Margin="0,2">
+                                            <TextBlock Classes="dd-hint"
+                                                       VerticalAlignment="Top"
+                                                       Text="{Binding Label}"/>
+                                            <SelectableTextBlock Grid.Column="1"
+                                                                 Classes.dd-mono="{Binding IsMono}"
+                                                                 Text="{Binding Value}"
+                                                                 FontSize="13"
+                                                                 TextWrapping="Wrap"
+                                                                 TextAlignment="Right"
+                                                                 Foreground="{DynamicResource ShareX.Brush.Text}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Border Classes="dd-rule"/>
+
+                        <!-- Placement: where it sits, and who may see it. Both rows are
+                             a fact with the button that changes it beside it, which is
+                             the panel's own shape for this section. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="7">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_DetailsPlacement}"/>
+
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,2">
+                                <TextBlock Classes="icon"
+                                           Text="{Binding FolderIcon}"
+                                           FontSize="15"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Classes="dd-hint" Text="{x:Static res:Strings.MySpace_DetailsFolder}"/>
+                                    <TextBlock Text="{Binding FolderName}"
+                                               FontSize="13"
+                                               MaxLines="1"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <Button Grid.Column="2"
+                                        Classes="dd-small"
+                                        IsEnabled="{Binding IsLive}"
+                                        Click="OnChangeFolderClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.folder_input}"
+                                                   FontSize="13"/>
+                                        <TextBlock Text="{x:Static res:Strings.MySpace_DetailsChange}"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,2">
+                                <TextBlock Classes="icon"
+                                           Text="{Binding VisibilityIcon}"
+                                           FontSize="15"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Classes="dd-hint" Text="{x:Static res:Strings.MySpace_DetailsVisibility}"/>
+                                    <TextBlock Text="{Binding VisibilityText}" FontSize="13"/>
+                                </StackPanel>
+                                <Button Grid.Column="2"
+                                        Classes="dd-small"
+                                        IsEnabled="{Binding IsLive}"
+                                        Click="OnVisibilityClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="icon"
+                                                   Text="{Binding VisibilityActionIcon}"
+                                                   FontSize="13"/>
+                                        <TextBlock Text="{Binding VisibilityAction}"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+
+                        <Border Classes="dd-rule" IsVisible="{Binding IsLive}"/>
+
+                        <!-- Every shape of link, each one a copy button. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="7" IsVisible="{Binding IsLive}">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_DetailsLinks}"/>
+                            <ItemsControl ItemsSource="{Binding Links}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DetailsLink">
+                                        <!-- Named after the shape it copies, so five rows
+                                             that differ only by the text inside them are
+                                             five distinguishable buttons rather than five
+                                             copies of "Grid". -->
+                                        <Button Classes="dd-link"
+                                                Tag="{Binding}"
+                                                AutomationProperties.Name="{Binding Label}"
+                                                Click="OnCopyRowClick">
+                                            <ToolTip.Tip>
+                                                <TextBlock Text="{Binding Value}"
+                                                           FontWeight="Normal"
+                                                           TextWrapping="WrapWithOverflow"/>
+                                            </ToolTip.Tip>
+                                            <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="8">
+                                                <TextBlock Classes="dd-hint"
+                                                           VerticalAlignment="Center"
+                                                           Text="{Binding Label}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Value}"
+                                                           FontFamily="{DynamicResource ShareX.FontFamily.Monospace}"
+                                                           FontSize="11"
+                                                           MaxLines="1"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Classes="icon"
+                                                           Text="{Binding Icon}"
+                                                           FontSize="13"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Border Classes="dd-rule"/>
+
+                        <!-- Statistics. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="7">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_DetailsStats}"/>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Border Classes="dd-stat">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.eye}"
+                                                   FontSize="15"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Classes="dd-hint" Text="{x:Static res:Strings.MySpace_DetailsViews}"/>
+                                            <TextBlock Text="{Binding ViewsText}" FontSize="14" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Border Grid.Column="1" Classes="dd-stat">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <TextBlock Classes="icon"
+                                                   Text="{x:Static theming:LucideIcons.download}"
+                                                   FontSize="15"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Classes="dd-hint" Text="{x:Static res:Strings.MySpace_DetailsDownloads}"/>
+                                            <TextBlock Text="{Binding DownloadsText}" FontSize="14" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+
+                        <Border Classes="dd-rule" IsVisible="{Binding IsLive}"/>
+
+                        <!-- The gates: what stands between the link and whoever follows
+                             it. Read here, changed in the window that owns them. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="9" IsVisible="{Binding IsLive}">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_LinkSettings}"/>
+                            <ItemsControl ItemsSource="{Binding Gates}" IsVisible="{Binding HasGates}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DetailsGate">
+                                        <Border Classes="dd-gate">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Classes="icon" Text="{Binding Icon}" FontSize="12"/>
+                                                <TextBlock Text="{Binding Text}" FontSize="12"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="dd-hint"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding HasNoGates}"
+                                       Text="{x:Static res:Strings.MySpace_DetailsNoGates}"/>
+                            <Button Classes="dd-small"
+                                    HorizontalAlignment="Left"
+                                    Click="OnLinkSettingsClick">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="icon"
+                                               Text="{x:Static theming:LucideIcons.settings_2}"
+                                               FontSize="13"/>
+                                    <TextBlock Text="{x:Static res:Strings.MySpace_DetailsEditLinkSettings}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <Border Classes="dd-rule"/>
+
+                        <!-- The end of the drawer, where the file can be taken away. -->
+                        <StackPanel Margin="16,8,16,8" Spacing="7">
+                            <TextBlock Classes="dd-section" Text="{x:Static res:Strings.MySpace_DetailsDanger}"/>
+
+                            <Border Classes="dd-danger-card" IsVisible="{Binding IsLive}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Static res:Strings.MySpace_DetailsTrashTitle}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Classes="dd-hint"
+                                                   TextWrapping="Wrap"
+                                                   Text="{x:Static res:Strings.MySpace_DetailsTrashHint}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Classes="dd-small dd-danger"
+                                            VerticalAlignment="Center"
+                                            Click="OnTrashClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Classes="icon"
+                                                       Text="{x:Static theming:LucideIcons.trash_2}"
+                                                       FontSize="13"/>
+                                            <TextBlock Text="{x:Static res:Strings.MySpace_DetailsTrashButton}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Already in the trash. The two things left to do with it
+                                 are the way back and the way out; a "Move to trash"
+                                 button here would restart its thirty-day clock. -->
+                            <Border Classes="dd-danger-card" IsVisible="{Binding IsInTrash}">
+                                <StackPanel Spacing="9">
+                                    <TextBlock Classes="dd-hint"
+                                               TextWrapping="Wrap"
+                                               Text="{x:Static res:Strings.MySpace_DetailsTrashedHint}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Classes="dd-small" Click="OnRestoreClick">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Classes="icon"
+                                                           Text="{x:Static theming:LucideIcons.undo_2}"
+                                                           FontSize="13"/>
+                                                <TextBlock Text="{x:Static res:Strings.MySpace_Restore}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Classes="dd-small dd-danger" Click="OnDeleteForeverClick">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Classes="icon"
+                                                           Text="{x:Static theming:LucideIcons.trash_2}"
+                                                           FontSize="13"/>
+                                                <TextBlock Text="{x:Static res:Strings.MySpace_DeleteForever}"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

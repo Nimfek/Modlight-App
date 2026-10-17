@@ -1,0 +1,133 @@
+#region License Information (GPL v3)
+
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+*/
+
+#endregion License Information (GPL v3)
+
+#nullable enable
+
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using System;
+using System.IO;
+
+namespace ShareX;
+
+public static class MainWindowIntegration
+{
+    private static MainWindow? _window;
+    private static bool _isVisible;
+
+    public static bool IsInitialized => _window != null;
+    public static bool IsVisible => _isVisible;
+    internal static MainWindow? Instance => _window;
+
+    public static void Initialize(MainForm host, bool show)
+    {
+        RunOnUiThread(() =>
+        {
+            if (_window == null)
+            {
+                MainWindow window = new MainWindow(host);
+                _window = window;
+
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.MainWindow = window;
+                }
+
+                window.Closed += (_, _) =>
+                {
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime &&
+                        ReferenceEquals(lifetime.MainWindow, window))
+                    {
+                        lifetime.MainWindow = null;
+                    }
+
+                    _window = null;
+                    _isVisible = false;
+                };
+            }
+
+            if (show)
+            {
+                _window.ShowAndActivate();
+                _isVisible = true;
+            }
+        });
+    }
+
+    public static void Activate()
+    {
+        RunOnUiThread(() =>
+        {
+            _window?.ShowAndActivate();
+            _isVisible = _window?.IsVisible == true;
+        });
+    }
+
+    public static void Hide()
+    {
+        RunOnUiThread(() =>
+        {
+            _window?.HideToTray();
+            _isVisible = false;
+        });
+    }
+
+    public static void Close()
+    {
+        RunOnUiThread(() =>
+        {
+            _window?.CloseFromHost();
+            _isVisible = false;
+        });
+    }
+
+    public static void SetTitle(string title) => RunOnUiThread(() =>
+    {
+        _window?.SetTitle(title);
+        if (Program.MainForm != null)
+        {
+            Program.MainForm.TrayIconService.ToolTipText = title;
+        }
+    });
+
+    public static void SetTrayVisible(bool visible) => RunOnUiThread(() =>
+    {
+        if (Program.MainForm != null)
+        {
+            Program.MainForm.TrayIconService.Visible = visible;
+        }
+    });
+
+    public static void SetTrayIcon(System.Drawing.Icon icon)
+    {
+        using MemoryStream stream = new();
+        icon.Save(stream);
+        byte[] iconBytes = stream.ToArray();
+        RunOnUiThread(() => Program.MainForm?.TrayIconService.SetIcon(iconBytes));
+    }
+
+    public static void ShowTrayMenu() => RunOnUiThread(() => _window?.ShowTrayMenu());
+
+    public static void RefreshMenus() => RunOnUiThread(() => _window?.RefreshMenus());
+
+    internal static void ReportVisibility(bool visible) => _isVisible = visible;
+
+    private static void RunOnUiThread(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(action);
+        }
+    }
+}

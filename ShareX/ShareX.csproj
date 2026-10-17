@@ -1,0 +1,114 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>Modlight_Icon.ico</ApplicationIcon>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The binary is Modlight.exe, not ShareX.exe. This renames the ASSEMBLY only;
+         the 1220 `namespace ShareX.*` declarations stay exactly as they are, because
+         they are invisible to users and renaming them guarantees a conflict in every
+         future merge from upstream.
+         Worth the exception: the file name is the one piece of the old identity a
+         user actually meets - in the install folder, in Task Manager, in the
+         firewall prompt and in every "allow this app to make changes" dialog. -->
+    <AssemblyName>Modlight</AssemblyName>
+    <!-- AssemblyTitle becomes the Win32 FileDescription, which is what Task Manager
+         and the UAC elevation prompt show. Without it that field falls back to the
+         assembly name. -->
+    <AssemblyTitle>Modlight</AssemblyTitle>
+    <Description>Modlight - screen capture, file sharing and productivity tool</Description>
+    <SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ForceDesignerDpiUnaware>true</ForceDesignerDpiUnaware>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationUseCompatibleTextRendering>false</ApplicationUseCompatibleTextRendering>
+    <ApplicationDefaultFont>Microsoft Sans Serif, 8.25pt</ApplicationDefaultFont>
+    <CETCompat>false</CETCompat>
+    <!-- RELEASE LAYOUT. `dotnet build` stays framework-dependent so the daily loop stays
+         fast; it is only `dotnet publish` that produces the thing users install, and that
+         one carries the runtime with it. Without this a user with no .NET 10 Desktop
+         Runtime installs Modlight and nothing starts at all - the host looks for the
+         shared framework named in Modlight.runtimeconfig.json and gives up.
+         PublishSelfContained rather than SelfContained precisely because the latter would
+         also apply to build. -->
+    <PublishSelfContained>true</PublishSelfContained>
+    <!-- Explicit rather than left to the default, because both would ship something that
+         only fails once it is in front of a user.
+
+         SINGLE FILE: DebugLogWindow does
+         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), and Location is
+         an EMPTY STRING for an assembly inside a single-file bundle - so opening the debug
+         log would throw. That is one confirmed call site in code we own; Avalonia, WinForms
+         and Newtonsoft between them have more.
+
+         TRIMMING: this app is Avalonia plus WinForms plus reflection-driven JSON settings.
+         The trimmer keeps what it can see statically, and none of those three are visible
+         that way, so the failures would be MissingMethodException at runtime on paths a
+         smoke test does not reach. A 150 MB installer that works beats a 60 MB one that
+         crashes in a screen nobody opened during testing. -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <!-- WebView2, for the YouTube sign-in window in the Download tab. What this adds to
+         the installer is the managed wrapper plus WebView2Loader.dll - roughly two
+         megabytes - and NOT a browser: the Evergreen runtime is a Windows component that
+         ships with Edge, so there is nothing to carry and nothing to update. -->
+    <PackageReference Include="Microsoft.Web.WebView2" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.Views.WindowsForms" />
+    <PackageReference Include="ZXing.Net" />
+    <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\Flags\*.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Localization\Strings.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <Compile Update="Localization\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShareX.Avalonia\ShareX.Avalonia.csproj" />
+    <ProjectReference Include="..\ShareX.Tools\ShareX.Tools.csproj" />
+    <ProjectReference Include="..\ShareX.HistoryLib\ShareX.HistoryLib.csproj" />
+    <ProjectReference Include="..\ShareX.ImageEditor\ShareX.ImageEditor.csproj" />
+    <ProjectReference Include="..\ShareX.ImageEffectsLib\ShareX.ImageEffectsLib.csproj" />
+    <ProjectReference Include="..\ShareX.ScreenCaptureLib\ShareX.ScreenCaptureLib.csproj" />
+    <ProjectReference Include="..\ShareX.HelpersLib\ShareX.HelpersLib.csproj" />
+    <ProjectReference Include="..\ShareX.UploadersLib\ShareX.UploadersLib.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="ShareX_File_Icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <!-- QuickJS, the JavaScript runtime the Download tab hands to yt-dlp.
+       Both files, and the DLL is not optional: qjs.exe names libwinpthread-1.dll in its
+       PE import table, so on a machine without it the process dies at load with
+       0xC0000135 (STATUS_DLL_NOT_FOUND) before main runs. It is easy to miss because
+       any PC with Git for Windows or MSYS on PATH resolves it by accident.
+       Kept in a Tools subfolder rather than beside Modlight.exe so that a foreign
+       executable and a mingw DLL are not sitting in a directory that a self-contained
+       publish already fills with two hundred System.*.dll files. -->
+  <ItemGroup>
+    <None Include="..\Tools\quickjs\qjs.exe" Link="Tools\qjs.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Tools\quickjs\libwinpthread-1.dll" Link="Tools\libwinpthread-1.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
+  </ItemGroup>
+</Project>

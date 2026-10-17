@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:res="using:ShareX.Localization"
+        x:Class="ShareX.ModlightPromptWindow"
+        x:CompileBindings="False"
+        Width="460"
+        MinWidth="380"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Grid RowDefinitions="*,Auto">
+            <StackPanel Margin="22,20,22,18" Spacing="12">
+                <TextBlock x:Name="Heading"
+                           FontSize="17"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"/>
+
+                <TextBlock x:Name="Description" Classes="hint"/>
+
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="FieldLabel" FontWeight="SemiBold" FontSize="12"/>
+
+                    <!-- The prefix sits OUTSIDE the box rather than inside it as
+                         placeholder text: it is not part of what the person types, and a
+                         field pre-filled with an address they must not delete is a field
+                         that gets half deleted. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <TextBlock x:Name="Prefix"
+                                   Classes="hint"
+                                   VerticalAlignment="Center"
+                                   IsVisible="False"/>
+                        <TextBox x:Name="Field"
+                                 Grid.Column="1"
+                                 KeyDown="OnFieldKeyDown"/>
+                    </Grid>
+
+                    <TextBlock x:Name="Problem"
+                               Classes="hint"
+                               IsVisible="False"
+                               Foreground="{DynamicResource ShareX.Brush.Accent.Start}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Padding="14,12"
+                    Background="{DynamicResource ShareX.Brush.Background.Toolbar}"
+                    BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                    BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="compact"
+                            IsCancel="True"
+                            Content="{x:Static res:Strings.MySpace_Cancel}"
+                            Click="OnCancelClick"/>
+                    <Button x:Name="ConfirmButton"
+                            Classes="compact primary"
+                            IsDefault="True"
+                            Click="OnConfirmClick"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ThemeVariantScope>
+</Window>

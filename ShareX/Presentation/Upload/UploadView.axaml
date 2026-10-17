@@ -1,0 +1,538 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+             xmlns:res="using:ShareX.Localization"
+             xmlns:local="using:ShareX"
+             x:Class="ShareX.UploadView"
+             x:CompileBindings="False">
+
+    <!-- Every style this tab needs is declared here rather than borrowed from the
+         window's own set. The tab is a control that happens to live in that window
+         today; a class name it silently inherits from a neighbour is a dependency
+         nobody can see, and the neighbour is 1200 lines being edited by other hands.
+         The `up-` prefix guarantees no collision in either direction. -->
+    <UserControl.Styles>
+        <Style Selector="Border.up-panel">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <!-- One row, one upload. A flat list of equal cards rather than a table:
+             the interesting thing about a transfer is its bar, and a bar in a table
+             cell is the shape that made every download manager look like a spreadsheet. -->
+        <Style Selector="Border.up-card">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style Selector="Border.up-badge">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-body">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- Section labels, not headings: they name a group of rows and then get out
+             of the way, so they are the smallest and quietest text on the screen. -->
+        <Style Selector="TextBlock.up-section">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-name">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-meta">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+
+        <!-- The link is the payload of a finished upload, so it gets the accent - the
+             one place on this screen where colour carries meaning rather than state. -->
+        <Style Selector="TextBlock.up-link">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Start}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxLines" Value="1"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-reason">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-ok">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Continue.Border}"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-bad">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.TaskMode.Cancel.Border}"/>
+        </Style>
+
+        <Style Selector="TextBlock.up-note">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- No surface until you point at it: three of these sit on every finished
+             row, and three framed buttons per row would out-shout the row itself. -->
+        <Style Selector="Button.up-quiet">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.up-quiet /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.up-quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.up-quiet:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.up-quiet TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+        </Style>
+
+        <Style Selector="Button.up-icon">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <Style Selector="Border.up-notice">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style Selector="Border.up-empty">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="22"/>
+            <Setter Property="Width" Value="520"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- The view model hangs off this grid rather than off the control, so that the
+         IsVisible binding the window puts on <local:UploadView/> still resolves
+         against the window. Setting DataContext on the control itself would silently
+         re-target that binding and leave the tab drawn on top of every other one. -->
+    <Grid x:Name="Root" RowDefinitions="Auto,*">
+
+        <!-- The way in, kept deliberately small. Drops are handled by the window for
+             the whole surface already, so this states that fact and offers the picker
+             beside it; it is a fallback, not the point of the tab. -->
+        <Border Grid.Row="0"
+                Padding="16"
+                Background="{DynamicResource ShareX.Brush.Background.Panel}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                BorderThickness="0,0,0,1">
+            <Border Classes="up-panel">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="up-badge">
+                        <TextBlock Classes="icon"
+                                   Text="{x:Static theming:LucideIcons.upload}"
+                                   FontSize="18"
+                                   Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Classes="up-title" Text="{x:Static res:Strings.Upload_DropTitle}"/>
+                        <TextBlock Classes="up-body" Text="{x:Static res:Strings.Upload_DropBody}"/>
+                    </StackPanel>
+                    <!-- Two ways in. The picker is still a fallback - drops are handled
+                         for the whole window - but a paste has no file to choose, so this
+                         is the only place it can start from. Same weight as the picker
+                         rather than a link or a menu entry: the owner asked for it to be
+                         here, and a second button is what "here" looks like. -->
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Center">
+                        <Button Click="OnPasteTextClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.clipboard_type}" FontSize="15"/>
+                                <TextBlock Text="{x:Static res:Strings.Paste_Action}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="OnChooseFilesClick">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.file_up}" FontSize="15"/>
+                                <TextBlock Text="{x:Static res:Strings.Upload_ChooseFiles}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+
+        <Panel Grid.Row="1">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="16,16,12,16" Spacing="18">
+
+                    <!-- In flight. Above the history and only present while something is
+                         actually moving: a permanently reserved empty band at the top
+                         would say "nothing is happening" louder than its absence does. -->
+                    <StackPanel Spacing="10" IsVisible="{Binding HasTransfers}">
+                        <TextBlock Classes="up-section" Text="{x:Static res:Strings.Upload_ActiveTitle}"/>
+                        <ItemsControl ItemsSource="{Binding Transfers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:TransferViewModel">
+                                    <Border Classes="up-card">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                            <Border Classes="up-badge">
+                                                <TextBlock Classes="icon"
+                                                           Text="{Binding Icon}"
+                                                           FontSize="18"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <TextBlock Classes="up-name" Text="{Binding Name}"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="up-meta"
+                                                               Text="{Binding State}"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                                <!-- MinWidth has to be said out loud: the Fluent theme
+                                                     gives ProgressBar a MinWidth of 200, which wins over
+                                                     the column during measure and pushes the row wide. -->
+                                                <ProgressBar Height="4"
+                                                             MinHeight="0"
+                                                             MinWidth="0"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             Value="{Binding Progress}"
+                                                             IsIndeterminate="{Binding IsIndeterminate}"/>
+                                                <TextBlock Classes="up-meta"
+                                                           Text="{Binding Detail}"
+                                                           IsVisible="{Binding HasDetail}"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2"
+                                                    Classes="up-quiet"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding CanCancel}"
+                                                    Tag="{Binding}"
+                                                    Click="OnCancelClick">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.x}" FontSize="15"/>
+                                                    <TextBlock Text="{x:Static res:Strings.Upload_Cancel}"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Waiting for a connection. Between the two other lists because that
+                         is where it belongs in time, and drawn in the SAME card as both of
+                         them on purpose: these are ordinary uploads that have not happened
+                         yet, and giving them a panel of their own would frame a delay as an
+                         incident. Nothing here is red and nothing here is a warning triangle
+                         except the rows that have genuinely stopped. -->
+                    <StackPanel Spacing="10" IsVisible="{Binding HasQueue}">
+                        <TextBlock Classes="up-section" Text="{x:Static res:Strings.UploadQueue_SectionTitle}"/>
+                        <ItemsControl ItemsSource="{Binding Queue}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:QueueRowViewModel">
+                                    <Border Classes="up-card">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                            <Border Classes="up-badge">
+                                                <Panel>
+                                                    <TextBlock Classes="icon"
+                                                               Text="{Binding Badge}"
+                                                               IsVisible="{Binding IsGoing}"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Classes="icon up-bad"
+                                                               Text="{Binding Badge}"
+                                                               IsVisible="{Binding IsStopped}"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <TextBlock Classes="up-name" Text="{Binding Name}"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="up-meta"
+                                                               Text="{Binding StateText}"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                                <!-- Only present while something is moving. A bar
+                                                     parked at zero next to "waiting" would read as
+                                                     an upload that has stalled at the start rather
+                                                     than one that has not begun. -->
+                                                <ProgressBar Height="4"
+                                                             MinHeight="0"
+                                                             MinWidth="0"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             IsVisible="{Binding ShowProgress}"
+                                                             Value="{Binding Progress}"
+                                                             IsIndeterminate="{Binding IsIndeterminate}"/>
+                                                <TextBlock Classes="up-meta"
+                                                           Text="{Binding Detail}"
+                                                           IsVisible="{Binding HasDetail}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4"
+                                                        VerticalAlignment="Center">
+                                                <Button Classes="up-quiet"
+                                                        IsVisible="{Binding CanSendNow}"
+                                                        Tag="{Binding}"
+                                                        Click="OnQueueSendNowClick">
+                                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                                        <TextBlock Classes="icon"
+                                                                   Text="{x:Static theming:LucideIcons.send}"
+                                                                   FontSize="15"/>
+                                                        <TextBlock Text="{x:Static res:Strings.UploadQueue_SendNow}"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Classes="up-quiet up-icon"
+                                                        ToolTip.Tip="{x:Static res:Strings.Upload_Cancel}"
+                                                        Tag="{Binding}"
+                                                        Click="OnQueueCancelClick">
+                                                    <TextBlock Classes="icon"
+                                                               Text="{x:Static theming:LucideIcons.x}"
+                                                               FontSize="16"
+                                                               HorizontalAlignment="Center"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- What has already gone up. Same card, and the outcome is carried
+                         by the badge, so the eye can run down one column and find the
+                         one that went wrong without reading a word. -->
+                    <StackPanel Spacing="10" IsVisible="{Binding HasHistory}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="up-section"
+                                       Text="{x:Static res:Strings.Upload_HistoryTitle}"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Classes="up-quiet up-icon"
+                                    ToolTip.Tip="{x:Static res:Strings.Upload_Refresh}"
+                                    Click="OnRefreshClick">
+                                <TextBlock Classes="icon"
+                                           Text="{x:Static theming:LucideIcons.refresh_cw}"
+                                           FontSize="16"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:UploadHistoryViewModel">
+                                    <Border Classes="up-card">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                            <Border Classes="up-badge">
+                                                <Panel>
+                                                    <TextBlock Classes="icon up-ok"
+                                                               Text="{x:Static theming:LucideIcons.circle_check}"
+                                                               IsVisible="{Binding IsDone}"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Classes="icon up-bad"
+                                                               Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                                               IsVisible="{Binding IsFailed}"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Classes="icon"
+                                                               Text="{x:Static theming:LucideIcons.ban}"
+                                                               IsVisible="{Binding IsCanceled}"
+                                                               FontSize="18"
+                                                               Opacity="0.6"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <TextBlock Classes="up-name" Text="{Binding Name}"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="up-meta"
+                                                               Text="{Binding StateText}"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                                <TextBlock Classes="up-meta" Text="{Binding Meta}"/>
+                                                <TextBlock Classes="up-link"
+                                                           Text="{Binding Link}"
+                                                           IsVisible="{Binding HasLink}"/>
+                                                <TextBlock Classes="up-reason"
+                                                           Text="{Binding Reason}"
+                                                           IsVisible="{Binding HasReason}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4"
+                                                        VerticalAlignment="Center">
+                                                <Button Classes="up-quiet up-icon"
+                                                        IsVisible="{Binding HasLink}"
+                                                        ToolTip.Tip="{Binding CopyTooltip}"
+                                                        Tag="{Binding}"
+                                                        Click="OnCopyClick">
+                                                    <TextBlock Classes="icon"
+                                                               Text="{Binding CopyIcon}"
+                                                               FontSize="16"
+                                                               HorizontalAlignment="Center"/>
+                                                </Button>
+                                                <Button Classes="up-quiet up-icon"
+                                                        IsVisible="{Binding HasLink}"
+                                                        ToolTip.Tip="{x:Static res:Strings.Upload_OpenInBrowser}"
+                                                        Tag="{Binding}"
+                                                        Click="OnOpenClick">
+                                                    <TextBlock Classes="icon"
+                                                               Text="{x:Static theming:LucideIcons.external_link}"
+                                                               FontSize="16"
+                                                               HorizontalAlignment="Center"/>
+                                                </Button>
+                                                <Button Classes="up-quiet"
+                                                        IsVisible="{Binding CanRetry}"
+                                                        Tag="{Binding}"
+                                                        Click="OnRetryClick">
+                                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                                        <TextBlock Classes="icon"
+                                                                   Text="{x:Static theming:LucideIcons.rotate_ccw}"
+                                                                   FontSize="15"/>
+                                                        <TextBlock Text="{x:Static res:Strings.Upload_Retry}"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <TextBlock Classes="up-note"
+                               IsVisible="{Binding IsLoadingHistory}"
+                               Text="{x:Static res:Strings.Upload_LoadingHistory}"/>
+
+                    <!-- An unread history and an empty one are different facts, so this
+                         says which one happened and offers the only thing that can help. -->
+                    <Border Classes="up-notice" IsVisible="{Binding HasHistoryError}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <TextBlock Classes="icon up-bad"
+                                       Text="{x:Static theming:LucideIcons.triangle_alert}"
+                                       FontSize="16"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1"
+                                       Classes="up-note"
+                                       Text="{Binding HistoryErrorText}"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="2"
+                                    Classes="up-quiet"
+                                    Click="OnRefreshClick"
+                                    Content="{x:Static res:Strings.Upload_Refresh}"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Classes="up-empty" IsVisible="{Binding ShowEmptyPanel}">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="13">
+                        <Border Classes="up-badge" Width="42" Height="42" VerticalAlignment="Top">
+                            <TextBlock Classes="icon"
+                                       Text="{x:Static theming:LucideIcons.upload}"
+                                       FontSize="20"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent.Start}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Classes="up-title" Text="{Binding EmptyTitle}"/>
+                            <TextBlock Classes="up-body" Text="{Binding EmptyBody}"/>
+                        </StackPanel>
+                    </Grid>
+                    <Button HorizontalAlignment="Left"
+                            IsVisible="{Binding IsSignedOut}"
+                            Click="OnSignInClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.log_in}" FontSize="15"/>
+                            <TextBlock Text="{x:Static res:Strings.MainWindow_SignIn}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button HorizontalAlignment="Left"
+                            IsVisible="{Binding IsSignedIn}"
+                            Click="OnChooseFilesClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.file_up}" FontSize="15"/>
+                            <TextBlock Text="{x:Static res:Strings.Upload_ChooseFiles}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Panel>
+    </Grid>
+</UserControl>
